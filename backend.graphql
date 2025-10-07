@@ -1,0 +1,684 @@
+"""The root query type which gives access points into the data universe."""
+type Query implements Node {
+  """
+  Exposes the root query type nested one level down. This is helpful for Relay 1
+  which can only query top level fields if they are in a particular form.
+  """
+  query: Query!
+
+  """
+  The root query type must be a `Node` to work well with Relay 1 mutations. This just resolves to `query`.
+  """
+  nodeId: ID!
+
+  """Fetches an object given its globally unique `ID`."""
+  node(
+    """The globally unique `ID`."""
+    nodeId: ID!
+  ): Node
+
+  """Get a single `BookAuthor`."""
+  bookAuthor(bookIsbn: String!, authorId: BigInt!): BookAuthor
+
+  """Get a single `Book`."""
+  book(isbn: String!): Book
+
+  """Get a single `User`."""
+  user(sub: String!): User
+
+  """Get a single `User`."""
+  userByEmail(email: String!): User
+
+  """Get a single `Author`."""
+  author(id: BigInt!): Author
+
+  """Reads a single `BookAuthor` using its globally unique `ID`."""
+  bookAuthorByNodeId(
+    """
+    The globally unique `ID` to be used in selecting a single `BookAuthor`.
+    """
+    nodeId: ID!
+  ): BookAuthor
+
+  """Reads a single `Book` using its globally unique `ID`."""
+  bookByNodeId(
+    """The globally unique `ID` to be used in selecting a single `Book`."""
+    nodeId: ID!
+  ): Book
+
+  """Reads a single `User` using its globally unique `ID`."""
+  userByNodeId(
+    """The globally unique `ID` to be used in selecting a single `User`."""
+    nodeId: ID!
+  ): User
+
+  """Reads a single `Author` using its globally unique `ID`."""
+  authorByNodeId(
+    """The globally unique `ID` to be used in selecting a single `Author`."""
+    nodeId: ID!
+  ): Author
+
+  """Reads and enables pagination through a set of `Book`."""
+  books(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: BookCondition
+
+    """The method to use when ordering `Book`."""
+    orderBy: [BooksOrderBy!] = [PRIMARY_KEY_ASC]
+  ): BooksConnection
+
+  """Reads and enables pagination through a set of `User`."""
+  users(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: UserCondition
+
+    """The method to use when ordering `User`."""
+    orderBy: [UsersOrderBy!] = [PRIMARY_KEY_ASC]
+  ): UsersConnection
+
+  """Reads and enables pagination through a set of `Author`."""
+  authors(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AuthorCondition
+
+    """The method to use when ordering `Author`."""
+    orderBy: [AuthorsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): AuthorsConnection
+}
+
+"""An object with a globally unique `ID`."""
+interface Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+}
+
+"""The authors of a book (many-to-many relationship)"""
+type BookAuthor implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+
+  """The ISBN of the book"""
+  bookIsbn: String!
+
+  """An author of the book"""
+  authorId: BigInt!
+
+  """Reads a single `Author` that is related to this `BookAuthor`."""
+  author: Author
+
+  """Reads a single `Book` that is related to this `BookAuthor`."""
+  book: Book
+}
+
+"""
+A signed eight-byte integer. The upper big integer values are greater than the
+max value for a JavaScript number. Therefore all big integers will be output as
+strings and not numbers.
+"""
+scalar BigInt
+
+"""An author of a book"""
+type Author implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  id: BigInt!
+
+  """
+  The name of the author. Cannot be empty and must be less than 1000 characters.
+  """
+  name: String!
+
+  """A brief biography of the author. Must be less than 10000 characters."""
+  bio: String
+  createdAt: Datetime!
+  updatedAt: Datetime!
+
+  """Reads and enables pagination through a set of `Book`."""
+  booksByBookAuthorAuthorIdAndBookIsbn(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: BookCondition
+
+    """The method to use when ordering `Book`."""
+    orderBy: [BooksOrderBy!] = [PRIMARY_KEY_ASC]
+  ): AuthorBooksByBookAuthorAuthorIdAndBookIsbnManyToManyConnection!
+}
+
+"""
+A point in time as described by the [ISO
+8601](https://en.wikipedia.org/wiki/ISO_8601) and, if it has a timezone, [RFC
+3339](https://datatracker.ietf.org/doc/html/rfc3339) standards. Input values
+that do not conform to both ISO 8601 and RFC 3339 may be coerced, which may lead
+to unexpected results.
+"""
+scalar Datetime
+
+"""A connection to a list of `Book` values, with data from `BookAuthor`."""
+type AuthorBooksByBookAuthorAuthorIdAndBookIsbnManyToManyConnection {
+  """A list of `Book` objects."""
+  nodes: [Book!]!
+
+  """
+  A list of edges which contains the `Book`, info from the `BookAuthor`, and the cursor to aid in pagination.
+  """
+  edges: [AuthorBooksByBookAuthorAuthorIdAndBookIsbnManyToManyEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Book` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A single edition of a book"""
+type Book implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+
+  """The ISBN of the book. Must be a 10 or 13 digit ISBN."""
+  isbn: String!
+
+  """
+  The title of the book. Cannot be empty and must be less than 1000 characters.
+  """
+  title: String!
+  createdAt: Datetime!
+  updatedAt: Datetime!
+
+  """Reads and enables pagination through a set of `Author`."""
+  authors(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+
+    """Only read the last `n` values of the set."""
+    last: Int
+
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: AuthorCondition
+
+    """The method to use when ordering `Author`."""
+    orderBy: [AuthorsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): BookAuthorsManyToManyConnection!
+}
+
+"""
+A connection to a list of `Author` values, with data from `BookAuthor`.
+"""
+type BookAuthorsManyToManyConnection {
+  """A list of `Author` objects."""
+  nodes: [Author!]!
+
+  """
+  A list of edges which contains the `Author`, info from the `BookAuthor`, and the cursor to aid in pagination.
+  """
+  edges: [BookAuthorsManyToManyEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Author` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Author` edge in the connection, with data from `BookAuthor`."""
+type BookAuthorsManyToManyEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Author` at the end of the edge."""
+  node: Author!
+}
+
+"""A location in a connection that can be used for resuming pagination."""
+scalar Cursor
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """When paginating forwards, are there more items?"""
+  hasNextPage: Boolean!
+
+  """When paginating backwards, are there more items?"""
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: Cursor
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: Cursor
+}
+
+"""
+A condition to be used against `Author` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input AuthorCondition {
+  """Checks for equality with the object’s `id` field."""
+  id: BigInt
+
+  """Checks for equality with the object’s `name` field."""
+  name: String
+
+  """Checks for equality with the object’s `bio` field."""
+  bio: String
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""Methods to use when ordering `Author`."""
+enum AuthorsOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  ID_ASC
+  ID_DESC
+  NAME_ASC
+  NAME_DESC
+  BIO_ASC
+  BIO_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+"""A `Book` edge in the connection, with data from `BookAuthor`."""
+type AuthorBooksByBookAuthorAuthorIdAndBookIsbnManyToManyEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Book` at the end of the edge."""
+  node: Book!
+}
+
+"""
+A condition to be used against `Book` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input BookCondition {
+  """Checks for equality with the object’s `isbn` field."""
+  isbn: String
+
+  """Checks for equality with the object’s `title` field."""
+  title: String
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""Methods to use when ordering `Book`."""
+enum BooksOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  ISBN_ASC
+  ISBN_DESC
+  TITLE_ASC
+  TITLE_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+type User implements Node {
+  """
+  A globally unique identifier. Can be used in various places throughout the system to identify this single value.
+  """
+  nodeId: ID!
+  sub: String!
+  email: String!
+  createdAt: Datetime!
+  updatedAt: Datetime!
+}
+
+"""A connection to a list of `Book` values."""
+type BooksConnection {
+  """A list of `Book` objects."""
+  nodes: [Book!]!
+
+  """
+  A list of edges which contains the `Book` and cursor to aid in pagination.
+  """
+  edges: [BooksEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Book` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Book` edge in the connection."""
+type BooksEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Book` at the end of the edge."""
+  node: Book!
+}
+
+"""A connection to a list of `User` values."""
+type UsersConnection {
+  """A list of `User` objects."""
+  nodes: [User!]!
+
+  """
+  A list of edges which contains the `User` and cursor to aid in pagination.
+  """
+  edges: [UsersEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `User` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `User` edge in the connection."""
+type UsersEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `User` at the end of the edge."""
+  node: User!
+}
+
+"""
+A condition to be used against `User` object types. All fields are tested for equality and combined with a logical ‘and.’
+"""
+input UserCondition {
+  """Checks for equality with the object’s `sub` field."""
+  sub: String
+
+  """Checks for equality with the object’s `email` field."""
+  email: String
+
+  """Checks for equality with the object’s `createdAt` field."""
+  createdAt: Datetime
+
+  """Checks for equality with the object’s `updatedAt` field."""
+  updatedAt: Datetime
+}
+
+"""Methods to use when ordering `User`."""
+enum UsersOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  SUB_ASC
+  SUB_DESC
+  EMAIL_ASC
+  EMAIL_DESC
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  UPDATED_AT_ASC
+  UPDATED_AT_DESC
+}
+
+"""A connection to a list of `Author` values."""
+type AuthorsConnection {
+  """A list of `Author` objects."""
+  nodes: [Author!]!
+
+  """
+  A list of edges which contains the `Author` and cursor to aid in pagination.
+  """
+  edges: [AuthorsEdge!]!
+
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """The count of *all* `Author` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `Author` edge in the connection."""
+type AuthorsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+
+  """The `Author` at the end of the edge."""
+  node: Author!
+}
+
+"""
+The root mutation type which contains root level fields which mutate data.
+"""
+type Mutation {
+  registerUser(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: RegisterUserInput!
+  ): RegisterUserPayload
+
+  """Updates a single `User` using its globally unique id and a patch."""
+  updateUserByNodeId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateUserByNodeIdInput!
+  ): UpdateUserPayload
+
+  """Updates a single `User` using a unique key and a patch."""
+  updateUser(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateUserInput!
+  ): UpdateUserPayload
+
+  """Updates a single `User` using a unique key and a patch."""
+  updateUserByEmail(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateUserByEmailInput!
+  ): UpdateUserPayload
+}
+
+"""The output of our update `User` mutation."""
+type UpdateUserPayload {
+  """
+  The exact same `clientMutationId` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+
+  """The `User` that was updated by this mutation."""
+  user: User
+
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+
+  """An edge for our `User`. May be used by Relay 1."""
+  userEdge(
+    """The method to use when ordering `User`."""
+    orderBy: [UsersOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): UsersEdge
+}
+
+"""All input for the `updateUserByNodeId` mutation."""
+input UpdateUserByNodeIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+
+  """
+  The globally unique `ID` which will identify a single `User` to be updated.
+  """
+  nodeId: ID!
+
+  """
+  An object where the defined keys will be set on the `User` being updated.
+  """
+  patch: UserPatch!
+}
+
+"""Represents an update to a `User`. Fields that are set will be updated."""
+input UserPatch {
+  sub: String
+  email: String
+}
+
+"""All input for the `updateUser` mutation."""
+input UpdateUserInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  sub: String!
+
+  """
+  An object where the defined keys will be set on the `User` being updated.
+  """
+  patch: UserPatch!
+}
+
+"""All input for the `updateUserByEmail` mutation."""
+input UpdateUserByEmailInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  email: String!
+
+  """
+  An object where the defined keys will be set on the `User` being updated.
+  """
+  patch: UserPatch!
+}
+
+input RegisterUserInput {
+  username: String
+  email: String
+}
+
+type RegisterUserPayload {
+  result: RegisterUserResult
+  query: Query
+}
+
+union RegisterUserResult = User | UsernameConflict | EmailAddressConflict
+
+type UsernameConflict {
+  message: String!
+  username: String!
+}
+
+type EmailAddressConflict {
+  message: String!
+  email: String!
+}

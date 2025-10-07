@@ -1,0 +1,6 @@
+dist
+.wrangler
+server
+tmp
+test-results
+.env.*

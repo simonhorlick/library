@@ -1,0 +1,59 @@
+# createdAt
+# dateOfBirth
+# emergencyContactName
+# emergencyContactPhoneNumber
+# employer
+# estimatedSwimmingTime2000m
+# gender
+# medicalAllergies
+# medicalConditions
+# nationalTriathlonFederationCountry
+# nationalTriathlonFederationLicenseNumber
+# nationality
+# occupationSector
+# occupationTitle
+# phoneNumber
+# postalCode
+# stateProvince
+# triathlonClubName
+# updatedAt
+# nationalTriathlonFederationCountryCode {
+#   country2
+#   region
+#   iso2
+# }
+# country
+# city
+# bioSex
+# addressLine1
+# addressLine2
+
+session token:
+  // exp: number;
+  // iat: number;
+  // ip: string;
+  // app_metadata: Record<string, unknown>;
+  // iss: string;
+  // created_at: string;
+  // email_verified: boolean;
+  // identities: {
+  //   connection: string;
+  //   isSocial: boolean;
+  //   provider: string;
+  //   userId: string;
+  //   user_id: string;
+  // }[];
+  // name: string;
+  // nickname: string;
+  // picture: string;
+  // updated_at: string;
+  // user_id: string;
+  // user_metadata: Record<string, unknown>;
+  // multifactor: string[];
+  // idp_tenant_domain?: string; // provided by Google
+  // family_name?: string; // provided by Google
+  // given_name?: string; // provided by Google
+
+
+integration.test@admiral.digital
+Password is Integrat1on!
