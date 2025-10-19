@@ -1,15 +1,36 @@
 import "graphile-config";
 
+import type { PgInsertSingleQueryBuilder, PgResource } from "@dataplan/pg";
+import { PgInsertSingleStep } from "@dataplan/pg";
 import type {
-  PgInsertSingleQueryBuilder,
-  PgInsertSingleStep,
-  PgResource,
-} from "@dataplan/pg";
-import { pgInsertSingle } from "@dataplan/pg";
-import type { FieldArgs, ObjectStep } from "grafast";
-import { assertExecutableStep } from "grafast";
-import type { GraphQLOutputType, GraphQLObjectType } from "grafast/graphql";
+  ExecutionDetails,
+  GrafastResultsList,
+  FieldArgs,
+  ObjectStep,
+} from "grafast";
+import { assertExecutableStep, flagError, isPromiseLike } from "grafast";
+import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
+
+class GuardedPgInsertSingleStep<
+  TResource extends PgResource<any, any, any, any, any> = PgResource
+> extends PgInsertSingleStep<TResource> {
+  async execute(details: ExecutionDetails): Promise<GrafastResultsList<any>> {
+    const results = await super.execute(details);
+    return details.indexMap((i) => {
+      const value = results[i];
+      if (isPromiseLike(value)) {
+        return (value as Promise<any>).catch((error) =>
+          flagError(
+            error instanceof Error ? error : new Error(String(error)),
+            this.id
+          )
+        );
+      }
+      return value;
+    });
+  }
+}
 
 declare global {
   namespace GraphileConfig {
@@ -69,7 +90,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
   name: "PgMutationCreateWithConflictsPlugin",
   description:
     "Adds create mutations that return a union of the created record or constraint conflict details",
-  version: "0.1.0",
+  version: "0.0.1",
   after: ["smart-tags"],
 
   inflection: {
@@ -356,11 +377,10 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         () =>
                           function plan(
                             $mutation: ObjectStep<{
-                              insert: PgInsertSingleStep;
+                              clientMutationId: any;
                             }>
                           ) {
-                            const $insert = $mutation.get("insert");
-                            return $insert.getMeta("clientMutationId");
+                            return $mutation.get("clientMutationId");
                           },
                         []
                       ),
@@ -483,13 +503,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         type: new GraphQLNonNull(mutationInputType),
                         applyPlan: EXPORTABLE(
                           () =>
-                            function plan(
-                              _: any,
-                              $object: ObjectStep<{
-                                insert: PgInsertSingleStep;
-                                result: ObjectStep;
-                              }>
-                            ) {
+                            function plan(_: any, $object: ObjectStep<any>) {
                               return $object;
                             },
                           []
@@ -499,12 +513,12 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     type: payloadType,
                     description: `Creates a single \`${tableTypeName}\`.`,
                     // deprecationReason: tagToString(
-                    //   resource.extensions?.tags?.deprecated,
+                    //   resource.extensions?.tags?.deprecated
                     // ),
                     plan: EXPORTABLE(
                       (
                         object,
-                        pgInsertSingle,
+                        GuardedInsertStep,
                         resource,
                         trap,
                         TRAP_ERROR,
@@ -513,9 +527,19 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         analyzeInsertError
                       ) =>
                         function plan(_: any, args: FieldArgs) {
-                          const $insert = pgInsertSingle(
+                          const $insert = new GuardedInsertStep(
                             resource,
                             Object.create(null)
+                          );
+                          // Keep clientMutationId available even if the insert fails.
+                          const $clientMutationIdInput = args.getRaw([
+                            "input",
+                            "clientMutationId",
+                          ]);
+                          const $clientMutationId = lambda(
+                            $clientMutationIdInput,
+                            (value) => (value == null ? null : value),
+                            true
                           );
                           args.apply($insert);
 
@@ -549,7 +573,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           });
 
                           const $payload = object({
-                            insert: $insert,
+                            clientMutationId: $clientMutationId,
                             result: $result,
                           });
 
@@ -557,7 +581,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         },
                       [
                         object,
-                        pgInsertSingle,
+                        GuardedPgInsertSingleStep,
                         resource,
                         trap,
                         TRAP_ERROR,
