@@ -6,8 +6,8 @@ import type {
   PgResource,
 } from "@dataplan/pg";
 import { pgInsertSingle } from "@dataplan/pg";
-import type { FieldArgs, ObjectStep, ExecutionDetails, ExecutionResults } from "grafast";
-import { assertExecutableStep, object, lambda, ExecutableStep } from "grafast";
+import type { FieldArgs, ObjectStep } from "grafast";
+import { assertExecutableStep, object } from "grafast";
 import type { GraphQLOutputType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 
@@ -59,71 +59,6 @@ const isInsertable = (
   if (resource.codec.polymorphism) return false;
   if (resource.codec.isAnonymous) return false;
   return build.behavior.pgResourceMatches(resource, "resource:insert") === true;
-};
-
-// Simple helper to create error-handling wrapper using lambda
-const createErrorHandlingInsert = (
-  resource: PgResource<any, any, any, any, any>,
-  inflection: GraphileBuild.Inflection
-) => {
-  return EXPORTABLE(
-    (pgInsertSingle, lambda, resource, inflection) => 
-      function errorHandlingInsert(spec: any) {
-        const $insert = pgInsertSingle(resource, spec);
-        
-        // Override the execute method to add error handling
-        const originalExecute = $insert.execute.bind($insert);
-        $insert.execute = async function(details: any) {
-          try {
-            return await originalExecute(details);
-          } catch (error: any) {
-            // Log the error for debugging
-            console.error(`Database error in ${resource.name} creation:`, {
-              message: error.message,
-              code: error.code,
-              constraint: error.constraint,
-              detail: error.detail,
-              hint: error.hint,
-            });
-            
-            // Transform database errors into user-friendly GraphQL errors
-            const tableName = inflection.tableType(resource.codec);
-            
-            if (error.code === '23505') { // Unique constraint violation
-              if (error.constraint) {
-                const field = error.constraint.replace(/^.*_/, '').replace(/_.*$/, '');
-                throw new Error(`A ${tableName} with this ${field} already exists`);
-              } else {
-                throw new Error(`A ${tableName} with these values already exists`);
-              }
-            }
-            if (error.code === '23503') { // Foreign key constraint violation
-              throw new Error(`Referenced record does not exist`);
-            }
-            if (error.code === '23514') { // Check constraint violation
-              const constraintInfo = error.constraint ? ` (${error.constraint})` : '';
-              throw new Error(`The provided data violates validation rules${constraintInfo}`);
-            }
-            if (error.code === '23502') { // Not null constraint violation
-              const column = error.column || 'field';
-              throw new Error(`Required field '${column}' is missing`);
-            }
-            if (error.code === '42703') { // Undefined column
-              throw new Error(`Invalid field provided`);
-            }
-            if (error.code === '22001') { // String data right truncation
-              throw new Error(`Data too long for field`);
-            }
-            
-            // For other database errors, provide a generic message
-            throw new Error(`Failed to create ${tableName}: ${error.message}`);
-          }
-        };
-        
-        return $insert;
-      },
-    [pgInsertSingle, lambda, resource, inflection]
-  );
 };
 
 export const PgMutationCreatePlugin2: GraphileConfig.Plugin = {
@@ -412,18 +347,19 @@ export const PgMutationCreatePlugin2: GraphileConfig.Plugin = {
                     //   resource.extensions?.tags?.deprecated
                     // ),
                     plan: EXPORTABLE(
-                      (object, createErrorHandlingInsert, resource, inflection) =>
+                      (object, pgInsertSingle, resource) =>
                         function plan(_: any, args: FieldArgs) {
-                          // Use our error-handling wrapper instead of pgInsertSingle directly
-                          const errorHandlingInsert = createErrorHandlingInsert(resource, inflection);
-                          const $insert = errorHandlingInsert(Object.create(null));
+                          const $insert = pgInsertSingle(
+                            resource,
+                            Object.create(null)
+                          );
                           args.apply($insert);
                           const plan = object({
                             result: $insert,
                           });
                           return plan;
                         },
-                      [object, createErrorHandlingInsert, resource, inflection]
+                      [object, pgInsertSingle, resource]
                     ),
                   }
                 ),
