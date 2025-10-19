@@ -288,52 +288,51 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             build.registerUnionType(
               resultTypeName,
               {},
-              () => {
-                const TableType = build.getGraphQLTypeByPgCodec(
-                  resource.codec,
-                  "output"
-                ) as GraphQLOutputType | undefined;
-                const ConflictType = build.getTypeByName(conflictTypeName) as
-                  | GraphQLObjectType
-                  | undefined;
-                return {
-                  description: build.wrapDescription(
-                    `Outcome of attempting to create a \`${tableTypeName}\`.`,
-                    "type"
-                  ),
-                  types: () =>
-                    [TableType, ConflictType].filter(
-                      (type): type is GraphQLObjectType => !!type
-                    ),
-                  planType: EXPORTABLE(
-                    (get, lambda, list, tableTypeName, conflictTypeName) =>
-                      function planType($specifier) {
-                        const $row = get($specifier, "row");
-                        const $conflict = get($specifier, "conflict");
-                        const $__typename = lambda(
-                          list([$row, $conflict]),
-                          ([row]) =>
-                            row != null ? tableTypeName : conflictTypeName,
-                          true
-                        );
-                        return {
-                          $__typename,
-                          planForType(t) {
-                            if (t.name === tableTypeName) {
-                              return $row;
-                            } else if (t.name === conflictTypeName) {
-                              return $conflict;
-                            }
-                            throw new Error(
-                              `Unexpected type '${t.name}' when resolving create result union`
-                            );
-                          },
-                        };
-                      },
-                    [get, lambda, list, tableTypeName, conflictTypeName]
-                  ),
-                };
-              },
+              () => ({
+                description: build.wrapDescription(
+                  `Outcome of attempting to create a \`${tableTypeName}\`.`,
+                  "type"
+                ),
+                types: () => {
+                  const TableType = build.getGraphQLTypeByPgCodec(
+                    resource.codec,
+                    "output"
+                  ) as GraphQLObjectType | undefined;
+                  const ConflictType = build.getTypeByName(conflictTypeName) as
+                    | GraphQLObjectType
+                    | undefined;
+                  return [TableType, ConflictType].filter(
+                    (type): type is GraphQLObjectType => !!type
+                  );
+                },
+                planType: EXPORTABLE(
+                  (get, lambda, list, tableTypeName, conflictTypeName) =>
+                    function planType($specifier) {
+                      const $row = get($specifier, "row");
+                      const $conflict = get($specifier, "conflict");
+                      const $__typename = lambda(
+                        list([$row, $conflict]),
+                        ([row]) =>
+                          row != null ? tableTypeName : conflictTypeName,
+                        true
+                      );
+                      return {
+                        $__typename,
+                        planForType(t) {
+                          if (t.name === tableTypeName) {
+                            return $row;
+                          } else if (t.name === conflictTypeName) {
+                            return $conflict;
+                          }
+                          throw new Error(
+                            `Unexpected type '${t.name}' when resolving create result union`
+                          );
+                        },
+                      };
+                    },
+                  [get, lambda, list, tableTypeName, conflictTypeName]
+                ),
+              }),
               `PgMutationCreateWithConflictsPlugin result union for ${resource.name}`
             );
 
@@ -349,12 +348,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                 assertStep: assertExecutableStep,
                 description: `The output of our create \`${tableTypeName}\` mutation.`,
                 fields: ({ fieldWithHooks }) => {
-                  const TableType = build.getGraphQLTypeByPgCodec(
-                    resource.codec,
-                    "output"
-                  ) as GraphQLOutputType | undefined;
                   const resultType = build.getOutputTypeByName(resultTypeName);
-                  const fieldBehaviorScope = `insert:resource:select`;
                   return {
                     clientMutationId: {
                       type: GraphQLString,
@@ -376,7 +370,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           result: fieldWithHooks(
                             {
                               fieldName: "result",
-                              fieldBehaviorScope,
+                              fieldBehaviorScope: `insert:resource:select`,
                             },
                             () => ({
                               description: build.wrapDescription(
@@ -391,34 +385,6 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                                   },
                                 []
                               ),
-                            })
-                          ),
-                        }
-                      : null),
-                    ...(TableType &&
-                    build.behavior.pgResourceMatches(
-                      resource,
-                      fieldBehaviorScope
-                    )
-                      ? {
-                          [tableFieldName]: fieldWithHooks(
-                            {
-                              fieldName: tableFieldName,
-                              fieldBehaviorScope,
-                            },
-                            () => ({
-                              description: `The \`${tableTypeName}\` that was created by this mutation, if successful.`,
-                              type: TableType,
-                              plan: EXPORTABLE(
-                                () =>
-                                  function plan($payload: ObjectStep<any>) {
-                                    return $payload.get("result").get("row");
-                                  },
-                                []
-                              ),
-                              //   deprecationReason: tagToString(
-                              //     resource.extensions?.tags?.deprecated
-                              //   ),
                             })
                           ),
                         }
@@ -533,7 +499,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     type: payloadType,
                     description: `Creates a single \`${tableTypeName}\`.`,
                     // deprecationReason: tagToString(
-                    //   resource.extensions?.tags?.deprecated
+                    //   resource.extensions?.tags?.deprecated,
                     // ),
                     plan: EXPORTABLE(
                       (
@@ -568,7 +534,6 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           );
                           const $row = trap($insert, TRAP_ERROR, {
                             valueForError: "NULL",
-                            if: $isConstraint,
                           });
 
                           const $conflict = object({
