@@ -71,6 +71,9 @@ Prefer `const foo = (a: A) => { ... }` over `function foo(a: A) { ... }` for def
 
 After each change, create a commit. Commits should be small and focused on a single change. Avoid bundling multiple unrelated changes into a single commit.
 
+For avoidance of doubt:
+** MAKE MANY SMALL COMMITS **
+
 ## Model Git Commit Messages
 
 This project prefers to keep a clean commit history with well-formed commit messages. This section illustrates a model commit message and provides a bit of background for it. This content was originally created by Tim Pope and made available on his website, however that website is no longer active, so it is being provided here.
@@ -100,3 +103,6 @@ Further paragraphs come after blank lines.
 
 All commits should begin with the subsystem or package primarily affected by the change. In the case of a widespread change, the packages are to be delimited by either a '+' or a ','. This prefix seems minor but can be extremely helpful in determining the scope of a commit at a glance, or when bug hunting to find a commit which introduced a bug or regression.
 
+## Test driven development
+
+Always practice red-green-refactor. Write failing tests. Commit them. Write code to make them pass. Commit that. Refactor. Commit that.

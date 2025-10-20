@@ -533,12 +533,12 @@ type CreateBookPayload {
 }
 
 """Outcome of attempting to create a `Book`."""
-union CreateBookResult = Book | CreateBookConflict
+union CreateBookResult = Book | BookIsbnConflict
 
 """
-Details of a database constraint preventing a `Book` from being created.
+Conflict details when attempting to create a `Book` that violates the primary key on column (isbn).
 """
-type CreateBookConflict {
+type BookIsbnConflict {
   """Human-readable description of the conflict."""
   message: String
   """PostgreSQL error code describing the constraint failure."""
@@ -591,12 +591,12 @@ type CreateAuthorPayload {
 }
 
 """Outcome of attempting to create a `Author`."""
-union CreateAuthorResult = Author | CreateAuthorConflict
+union CreateAuthorResult = Author | AuthorIdConflict
 
 """
-Details of a database constraint preventing a `Author` from being created.
+Conflict details when attempting to create a `Author` that violates the primary key on column (id).
 """
-type CreateAuthorConflict {
+type AuthorIdConflict {
   """Human-readable description of the conflict."""
   message: String
   """PostgreSQL error code describing the constraint failure."""
@@ -649,12 +649,40 @@ type CreateUserPayload {
 }
 
 """Outcome of attempting to create a `User`."""
-union CreateUserResult = User | CreateUserConflict
+union CreateUserResult = User | UserEmailConflict | UserUsernameConflict | UserIdConflict
 
 """
-Details of a database constraint preventing a `User` from being created.
+Conflict details when attempting to create a `User` that violates the unique constraint on column (email).
 """
-type CreateUserConflict {
+type UserEmailConflict {
+  """Human-readable description of the conflict."""
+  message: String
+  """PostgreSQL error code describing the constraint failure."""
+  code: String
+  """Name of the violated database constraint, if available."""
+  constraint: String
+  """Further details supplied by PostgreSQL for this constraint violation."""
+  detail: String
+}
+
+"""
+Conflict details when attempting to create a `User` that violates the unique constraint on column (username).
+"""
+type UserUsernameConflict {
+  """Human-readable description of the conflict."""
+  message: String
+  """PostgreSQL error code describing the constraint failure."""
+  code: String
+  """Name of the violated database constraint, if available."""
+  constraint: String
+  """Further details supplied by PostgreSQL for this constraint violation."""
+  detail: String
+}
+
+"""
+Conflict details when attempting to create a `User` that violates the primary key on column (id).
+"""
+type UserIdConflict {
   """Human-readable description of the conflict."""
   message: String
   """PostgreSQL error code describing the constraint failure."""

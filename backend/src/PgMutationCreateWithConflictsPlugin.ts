@@ -11,6 +11,8 @@ import type {
 import { assertExecutableStep, isPromiseLike } from "grafast";
 import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
+import { gatherConfig } from "graphile-build";
+import type { PgConstraint } from "pg-introspection";
 
 // SafePgInsertSingleStep extends PgInsertSingleStep to handle database constraint
 // violations gracefully by converting promise rejections into regular values.
@@ -43,6 +45,22 @@ class SafePgInsertSingleStep<
   }
 }
 
+// ConstraintInfo represents a database constraint that can cause insert conflicts.
+// This includes primary keys and unique constraints.
+interface ConstraintInfo {
+  // Name of the constraint (e.g., "books_pkey", "unique_user_username").
+  constraintName: string;
+  // Name of the database table this constraint belongs to.
+  tableName: string;
+  // Type of constraint: 'p' for primary key, 'u' for unique.
+  constraintType: "p" | "u";
+  // Names of the columns involved in this constraint.
+  columnNames: string[];
+  // The GraphQL type name for the table (e.g., "Book", "User").
+  // This is computed during schema generation based on inflection rules.
+  tableTypeName?: string;
+}
+
 // Extend the global GraphileConfig types to register this plugin and define
 // the custom inflection methods and scope properties it provides.
 declare global {
@@ -50,9 +68,18 @@ declare global {
     interface Plugins {
       PgMutationCreateWithConflictsPlugin: true;
     }
+    interface GatherHelpers {
+      pgMutationCreateWithConflicts: {
+        getConstraintsForTable(tableName: string): ConstraintInfo[];
+      };
+    }
   }
 
   namespace GraphileBuild {
+    interface BuildInput {
+      // Map from table name to array of constraints that can cause insert conflicts.
+      pgInsertConflictConstraints?: Map<string, ConstraintInfo[]>;
+    }
     interface ScopeObject {
       isPgCreatePayloadType?: boolean;
     }
@@ -79,6 +106,11 @@ declare global {
       createConflictType(
         this: Inflection,
         resource: PgResource<any, any, any, any, any>
+      ): string;
+      // Generate conflict type name for a specific constraint (e.g., "IsbnConflict").
+      constraintConflictType(
+        this: Inflection,
+        constraintInfo: ConstraintInfo
       ): string;
       tableFieldName(
         this: Inflection,
@@ -311,7 +343,8 @@ const registerConflictType = (
   build: GraphileBuild.Build,
   resource: PgResource<any, any, any, any, any>,
   tableTypeName: string,
-  conflictTypeName: string
+  conflictTypeName: string,
+  description?: string
 ) => {
   build.registerObjectType(
     conflictTypeName,
@@ -321,7 +354,8 @@ const registerConflictType = (
     () => ({
       assertStep: assertExecutableStep,
       description: build.wrapDescription(
-        `Details of a database constraint preventing a \`${tableTypeName}\` from being created.`,
+        description ||
+          `Details of a database constraint preventing a \`${tableTypeName}\` from being created.`,
         "type"
       ),
       fields: createConflictFields(build),
@@ -330,18 +364,56 @@ const registerConflictType = (
   );
 };
 
+// registerConstraintConflictTypes creates and registers individual GraphQL conflict types
+// for each constraint on the resource (e.g., IsbnConflict, UsernameConflict).
+const registerConstraintConflictTypes = (
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any>,
+  tableTypeName: string,
+  constraints: ConstraintInfo[]
+) => {
+  const { inflection } = build;
+
+  for (const constraint of constraints) {
+    const conflictTypeName = inflection.constraintConflictType(constraint);
+    const columnList = constraint.columnNames.join(", ");
+    const description =
+      `Conflict details when attempting to create a \`${tableTypeName}\` ` +
+      `that violates the ${
+        constraint.constraintType === "p" ? "primary key" : "unique constraint"
+      } ` +
+      `on column${constraint.columnNames.length > 1 ? "s" : ""} (${columnList}).`;
+
+    registerConflictType(
+      build,
+      resource,
+      tableTypeName,
+      conflictTypeName,
+      description
+    );
+  }
+};
+
 // registerResultUnionType creates and registers the union type representing
-// either a successful insert or a constraint conflict.
+// either a successful insert or a constraint-specific conflict.
 const registerResultUnionType = (
   build: GraphileBuild.Build,
   resource: PgResource<any, any, any, any, any>,
   tableTypeName: string,
   resultTypeName: string,
-  conflictTypeName: string
+  constraints: ConstraintInfo[]
 ) => {
   const {
+    inflection,
     grafast: { get, lambda, list },
   } = build;
+
+  // Build a map from constraint name to conflict type name.
+  const constraintToTypeName = new Map<string, string>();
+  for (const constraint of constraints) {
+    const conflictTypeName = inflection.constraintConflictType(constraint);
+    constraintToTypeName.set(constraint.constraintName, conflictTypeName);
+  }
 
   build.registerUnionType(
     resultTypeName,
@@ -356,31 +428,56 @@ const registerResultUnionType = (
           resource.codec,
           "output"
         ) as GraphQLObjectType | undefined;
-        const ConflictType = build.getTypeByName(conflictTypeName) as
-          | GraphQLObjectType
-          | undefined;
-        return [TableType, ConflictType].filter(
+
+        // Include all constraint-specific conflict types in the union.
+        const conflictTypes = constraints
+          .map((constraint) => {
+            const typeName = inflection.constraintConflictType(constraint);
+            return build.getTypeByName(typeName) as
+              | GraphQLObjectType
+              | undefined;
+          })
+          .filter((type): type is GraphQLObjectType => !!type);
+
+        return [TableType, ...conflictTypes].filter(
           (type): type is GraphQLObjectType => !!type
         );
       },
 
-      // planType determines which type (table or conflict) should be returned
-      // for a given result by checking if the conflict message is present.
+      // planType determines which type (table or constraint-specific conflict)
+      // should be returned for a given result by examining the constraint name
+      // in the error.
       planType: EXPORTABLE(
-        (get, lambda, list, tableTypeName, conflictTypeName) =>
+        (get, lambda, list, tableTypeName, constraintToTypeName) =>
           function planType($specifier) {
             const $row = get($specifier, "row");
             const $conflict = get($specifier, "conflict");
             const $insert = get($specifier, "insert");
             const $conflictMessage = get($conflict, "message");
+            const $constraintName = get($conflict, "constraint");
 
-            // Determine the __typename by checking if a conflict message exists.
-            // If conflict.message is not null, we have a constraint violation.
-            // Otherwise, the insert succeeded and we return the table type.
+            // Determine the __typename by examining the constraint name.
+            // If there's a conflict, map the constraint name to the appropriate
+            // conflict type. Otherwise, return the table type for successful inserts.
             const $__typename = lambda(
-              list([$conflictMessage, $row]),
-              ([conflictMessage]) =>
-                conflictMessage != null ? conflictTypeName : tableTypeName,
+              list([$conflictMessage, $constraintName, $row]),
+              ([conflictMessage, constraintName]) => {
+                if (conflictMessage != null && constraintName != null) {
+                  // Look up the constraint-specific type name.
+                  const conflictTypeName =
+                    constraintToTypeName.get(constraintName);
+                  if (conflictTypeName) {
+                    return conflictTypeName;
+                  }
+                  // Fallback: if we don't recognize the constraint, we still have
+                  // a conflict but can't determine the specific type. This shouldn't
+                  // happen in practice if our constraint enumeration is complete.
+                  console.warn(
+                    `Unknown constraint '${constraintName}' for table '${tableTypeName}'`
+                  );
+                }
+                return tableTypeName;
+              },
               true
             );
             return {
@@ -389,21 +486,18 @@ const registerResultUnionType = (
               // planForType returns the appropriate step for each union member type.
               // For the table type (successful insert), we return $insert which
               // provides proper field access to the inserted row's columns.
-              // For the conflict type, we return $conflict which contains the
+              // For any conflict type, we return $conflict which contains the
               // constraint violation details.
               planForType(t) {
                 if (t.name === tableTypeName) {
                   return $insert;
-                } else if (t.name === conflictTypeName) {
-                  return $conflict;
                 }
-                throw new Error(
-                  `Unexpected type '${t.name}' when resolving create result union`
-                );
+                // All conflict types use the same $conflict step.
+                return $conflict;
               },
             };
           },
-        [get, lambda, list, tableTypeName, conflictTypeName]
+        [get, lambda, list, tableTypeName, constraintToTypeName]
       ),
     }),
     `PgMutationCreateWithConflictsPlugin result union for ${resource.name}`
@@ -531,12 +625,91 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
         return this.upperCamelCase(`${this.createField(resource)}-conflict`);
       },
 
+      // Generate constraint-specific conflict type name based on the GraphQL type name
+      // and column names involved in the constraint (e.g., "BookIsbnConflict",
+      // "UserUsernameConflict"). This ensures uniqueness across tables.
+      constraintConflictType(options, constraintInfo) {
+        // Use the GraphQL type name (singular form) stored in constraintInfo.
+        // This is populated during schema generation to ensure consistency.
+        const tableTypeName = constraintInfo.tableTypeName || this.upperCamelCase(constraintInfo.tableName);
+        const columnPart = constraintInfo.columnNames
+          .map((col) => this.upperCamelCase(col))
+          .join("");
+        return `${tableTypeName}${columnPart}Conflict`;
+      },
+
       // Generate the table field name used in the input type (e.g., "book").
       tableFieldName(options, resource) {
         return this.camelCase(`${this.tableType(resource.codec)}`);
       },
     },
   },
+
+  // Gather phase to collect constraint information from the database schema.
+  gather: gatherConfig({
+    namespace: "pgMutationCreateWithConflicts",
+    initialState: () => ({
+      constraintsByTable: new Map<string, ConstraintInfo[]>(),
+    }),
+    helpers: {
+      // Helper to retrieve constraints for a specific table.
+      getConstraintsForTable(info, tableName: string): ConstraintInfo[] {
+        return info.state.constraintsByTable.get(tableName) || [];
+      },
+    },
+    async main(output, info) {
+      // Make the constraint information available in the build input.
+      output.pgInsertConflictConstraints = info.state.constraintsByTable;
+    },
+    hooks: {
+      pgIntrospection_introspection(info, event) {
+        const { introspection } = event;
+
+        // Iterate through all constraints and collect primary keys and unique constraints.
+        for (const pgConstraint of introspection.constraints) {
+          // Only process primary key ('p') and unique ('u') constraints.
+          // These are the constraints that can cause insert conflicts.
+          if (pgConstraint.contype !== "p" && pgConstraint.contype !== "u") {
+            continue;
+          }
+
+          const pgClass = pgConstraint.getClass();
+          if (!pgClass) {
+            continue;
+          }
+
+          const tableName = pgClass.relname;
+          const constraintName = pgConstraint.conname;
+
+          // Get the column names involved in this constraint.
+          const columnNames = (pgConstraint.conkey || [])
+            .map((attnum) => {
+              const attr = pgClass
+                .getAttributes()
+                .find((a) => a.attnum === attnum);
+              return attr?.attname;
+            })
+            .filter((name): name is string => name != null);
+
+          if (columnNames.length === 0) {
+            continue;
+          }
+
+          const constraintInfo: ConstraintInfo = {
+            constraintName,
+            tableName,
+            constraintType: pgConstraint.contype as "p" | "u",
+            columnNames,
+          };
+
+          // Store the constraint in our state, grouped by table name.
+          const existing = info.state.constraintsByTable.get(tableName) || [];
+          existing.push(constraintInfo);
+          info.state.constraintsByTable.set(tableName, existing);
+        }
+      },
+    },
+  }),
 
   schema: {
     // Register custom behavior tags that control plugin functionality.
@@ -599,14 +772,28 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
           (resource) => isInsertable(build, resource)
         );
 
+        // Get the constraint information collected during the gather phase.
+        const constraintsByTable =
+          build.input.pgInsertConflictConstraints || new Map();
+
         insertableResources.forEach((resource) => {
           build.recoverable(null, () => {
             const tableTypeName = inflection.tableType(resource.codec);
             const inputTypeName = inflection.createInputType(resource);
             const tableFieldName = inflection.tableFieldName(resource);
-            const conflictTypeName = inflection.createConflictType(resource);
             const resultTypeName = inflection.createResultUnionType(resource);
             const payloadTypeName = inflection.createPayloadType(resource);
+
+            // Get the constraints for this table. We need to know the actual table name
+            // from the database, which is stored in the codec's name.
+            const tableName = resource.codec.name;
+            const constraints = (constraintsByTable.get(tableName) || []).map(
+              (c: ConstraintInfo): ConstraintInfo => ({
+                ...c,
+                // Populate the GraphQL type name for use in inflection.
+                tableTypeName,
+              })
+            );
 
             // Register all necessary GraphQL types for this resource.
             registerInputType(
@@ -616,19 +803,24 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
               inputTypeName,
               tableFieldName
             );
-            registerConflictType(
+
+            // Register individual conflict types for each constraint.
+            registerConstraintConflictTypes(
               build,
               resource,
               tableTypeName,
-              conflictTypeName
+              constraints
             );
+
+            // Register the result union type that includes all constraint-specific types.
             registerResultUnionType(
               build,
               resource,
               tableTypeName,
               resultTypeName,
-              conflictTypeName
+              constraints
             );
+
             registerPayloadType(
               build,
               resource,
