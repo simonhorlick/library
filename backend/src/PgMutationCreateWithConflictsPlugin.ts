@@ -675,69 +675,8 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             );
             const tableTypeName = inflection.tableType(resource.codec);
 
-            // analyzeInsertError inspects an error to determine if it's a database
-            // constraint violation (PostgreSQL error codes starting with "23").
-            // If it is, the error is converted to a structured conflict object with
-            // message, code, constraint, and detail fields. If it's not a constraint
-            // error, returns null to indicate the error should be handled normally.
-            const analyzeInsertError = EXPORTABLE(
-              (tableTypeName) =>
-                function analyze(value: any) {
-                  let error: unknown = value;
-
-                  // Unwrap the error if it's wrapped in a flags/value structure
-                  // (which can happen with trapped errors).
-                  if (
-                    error &&
-                    typeof error === "object" &&
-                    "flags" in error &&
-                    "value" in error
-                  ) {
-                    error = (error as any).value;
-                  }
-
-                  // Check if this is a PostgreSQL constraint violation error.
-                  // PostgreSQL constraint errors have codes starting with "23":
-                  // - 23000: integrity_constraint_violation
-                  // - 23001: restrict_violation
-                  // - 23502: not_null_violation
-                  // - 23503: foreign_key_violation
-                  // - 23505: unique_violation
-                  // - 23514: check_violation
-                  if (error && typeof error === "object") {
-                    const code = (error as any).code;
-                    if (typeof code === "string" && code.startsWith("23")) {
-                      // Extract error details to provide meaningful feedback to clients.
-                      // Prefer the detail field for the message as it typically contains
-                      // more specific information about what caused the constraint violation.
-                      const message =
-                        typeof (error as any).detail === "string"
-                          ? (error as any).detail
-                          : typeof (error as any).message === "string"
-                          ? (error as any).message
-                          : `Insert into '${tableTypeName}' violated a database constraint`;
-                      return {
-                        message,
-                        code,
-                        constraint:
-                          (error as any).constraint != null
-                            ? String((error as any).constraint)
-                            : null,
-                        detail:
-                          typeof (error as any).detail === "string"
-                            ? (error as any).detail
-                            : null,
-                      };
-                    }
-                  }
-
-                  // Not a constraint error, return null to indicate this error should
-                  // be handled through normal error channels.
-                  return null;
-                },
-              [tableTypeName],
-              "pgInsertAnalyzeConstraintError"
-            );
+            // Reuse the shared analyzer so constraint handling stays consistent across the plugin.
+            const analyzeInsertError = makeAnalyzeInsertError(tableTypeName);
 
             return build.extend(
               memo,
@@ -816,13 +755,6 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           const $errorDetails = lambda(
                             $inspection,
                             analyzeInsertError,
-                            true
-                          );
-
-                          // Determine if we have a constraint violation.
-                          const $isConstraint = lambda(
-                            $errorDetails,
-                            (details) => details != null,
                             true
                           );
 
