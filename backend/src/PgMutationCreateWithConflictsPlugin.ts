@@ -106,6 +106,381 @@ const isInsertable = (
   return build.behavior.pgResourceMatches(resource, "resource:insert") === true;
 };
 
+// analyzeInsertError inspects an error to determine if it's a database
+// constraint violation (PostgreSQL error codes starting with "23").
+// If it is, the error is converted to a structured conflict object with
+// message, code, constraint, and detail fields. If it's not a constraint
+// error, returns null to indicate the error should be handled normally.
+const makeAnalyzeInsertError = (tableTypeName: string) =>
+  EXPORTABLE(
+    (tableTypeName) =>
+      function analyze(value: any) {
+        let error: unknown = value;
+
+        // Unwrap the error if it's wrapped in a flags/value structure
+        // (which can happen with trapped errors).
+        if (
+          error &&
+          typeof error === "object" &&
+          "flags" in error &&
+          "value" in error
+        ) {
+          error = (error as any).value;
+        }
+
+        // Check if this is a PostgreSQL constraint violation error.
+        // PostgreSQL constraint errors have codes starting with "23":
+        // - 23000: integrity_constraint_violation
+        // - 23001: restrict_violation
+        // - 23502: not_null_violation
+        // - 23503: foreign_key_violation
+        // - 23505: unique_violation
+        // - 23514: check_violation
+        if (error && typeof error === "object") {
+          const code = (error as any).code;
+          if (typeof code === "string" && code.startsWith("23")) {
+            // Extract error details to provide meaningful feedback to clients.
+            // Prefer the detail field for the message as it typically contains
+            // more specific information about what caused the constraint violation.
+            const message =
+              typeof (error as any).detail === "string"
+                ? (error as any).detail
+                : typeof (error as any).message === "string"
+                ? (error as any).message
+                : `Insert into '${tableTypeName}' violated a database constraint`;
+            return {
+              message,
+              code,
+              constraint:
+                (error as any).constraint != null
+                  ? String((error as any).constraint)
+                  : null,
+              detail:
+                typeof (error as any).detail === "string"
+                  ? (error as any).detail
+                  : null,
+            };
+          }
+        }
+
+        // Not a constraint error, return null to indicate this error should
+        // be handled through normal error channels.
+        return null;
+      },
+    [tableTypeName],
+    "pgInsertAnalyzeConstraintError"
+  );
+
+// createConflictFields generates the GraphQL field definitions for the conflict type.
+// These fields expose the details of database constraint violations to clients.
+const createConflictFields = (build: GraphileBuild.Build) => {
+  const {
+    graphql: { GraphQLString },
+  } = build;
+
+  return ({ fieldWithHooks }: any) => ({
+    message: fieldWithHooks({ fieldName: "message" }, () => ({
+      type: GraphQLString,
+      description: build.wrapDescription(
+        "Human-readable description of the conflict.",
+        "field"
+      ),
+      plan: EXPORTABLE(
+        () =>
+          function plan($conflict: ObjectStep) {
+            return $conflict.get("message");
+          },
+        []
+      ),
+    })),
+    code: fieldWithHooks({ fieldName: "code" }, () => ({
+      type: GraphQLString,
+      description: build.wrapDescription(
+        "PostgreSQL error code describing the constraint failure.",
+        "field"
+      ),
+      plan: EXPORTABLE(
+        () =>
+          function plan($conflict: ObjectStep) {
+            return $conflict.get("code");
+          },
+        []
+      ),
+    })),
+    constraint: fieldWithHooks({ fieldName: "constraint" }, () => ({
+      type: GraphQLString,
+      description: build.wrapDescription(
+        "Name of the violated database constraint, if available.",
+        "field"
+      ),
+      plan: EXPORTABLE(
+        () =>
+          function plan($conflict: ObjectStep) {
+            return $conflict.get("constraint");
+          },
+        []
+      ),
+    })),
+    detail: fieldWithHooks({ fieldName: "detail" }, () => ({
+      type: GraphQLString,
+      description: build.wrapDescription(
+        "Further details supplied by PostgreSQL for this constraint violation.",
+        "field"
+      ),
+      plan: EXPORTABLE(
+        () =>
+          function plan($conflict: ObjectStep) {
+            return $conflict.get("detail");
+          },
+        []
+      ),
+    })),
+  });
+};
+
+// registerInputType creates and registers the GraphQL input type for create mutations.
+// This input type includes clientMutationId and the table's input fields.
+const registerInputType = (
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any>,
+  tableTypeName: string,
+  inputTypeName: string,
+  tableFieldName: string
+) => {
+  const {
+    graphql: { GraphQLString, GraphQLNonNull, isInputType },
+  } = build;
+
+  build.registerInputObjectType(
+    inputTypeName,
+    { isMutationInput: true },
+    () => ({
+      description: `All input for the create \`${tableTypeName}\` mutation.`,
+      fields: ({ fieldWithHooks }) => {
+        const TableInput = build.getGraphQLTypeByPgCodec(
+          resource.codec,
+          "input"
+        );
+        return {
+          clientMutationId: {
+            type: GraphQLString,
+            apply: EXPORTABLE(
+              () =>
+                function apply(qb: PgInsertSingleQueryBuilder, val) {
+                  qb.setMeta("clientMutationId", val);
+                },
+              []
+            ),
+          },
+          ...(isInputType(TableInput)
+            ? {
+                [tableFieldName]: fieldWithHooks(
+                  {
+                    fieldName: tableFieldName,
+                    fieldBehaviorScope: `insert:input:record`,
+                  },
+                  () => ({
+                    description: build.wrapDescription(
+                      `The \`${tableTypeName}\` to be created by this mutation.`,
+                      "field"
+                    ),
+                    type: new GraphQLNonNull(TableInput),
+                    apply: EXPORTABLE(
+                      () =>
+                        function plan(qb: PgInsertSingleQueryBuilder, arg) {
+                          if (arg != null) {
+                            return qb.setBuilder();
+                          }
+                        },
+                      []
+                    ),
+                  })
+                ),
+              }
+            : null),
+        };
+      },
+    }),
+    `PgMutationCreateWithConflictsPlugin input for ${resource.name}`
+  );
+};
+
+// registerConflictType creates and registers the GraphQL type for constraint conflicts.
+// This type contains error details when database constraints are violated.
+const registerConflictType = (
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any>,
+  tableTypeName: string,
+  conflictTypeName: string
+) => {
+  build.registerObjectType(
+    conflictTypeName,
+    {
+      pgTypeResource: resource,
+    },
+    () => ({
+      assertStep: assertExecutableStep,
+      description: build.wrapDescription(
+        `Details of a database constraint preventing a \`${tableTypeName}\` from being created.`,
+        "type"
+      ),
+      fields: createConflictFields(build),
+    }),
+    `PgMutationCreateWithConflictsPlugin conflict type for ${resource.name}`
+  );
+};
+
+// registerResultUnionType creates and registers the union type representing
+// either a successful insert or a constraint conflict.
+const registerResultUnionType = (
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any>,
+  tableTypeName: string,
+  resultTypeName: string,
+  conflictTypeName: string
+) => {
+  const {
+    grafast: { get, lambda, list },
+  } = build;
+
+  build.registerUnionType(
+    resultTypeName,
+    {},
+    () => ({
+      description: build.wrapDescription(
+        `Outcome of attempting to create a \`${tableTypeName}\`.`,
+        "type"
+      ),
+      types: () => {
+        const TableType = build.getGraphQLTypeByPgCodec(
+          resource.codec,
+          "output"
+        ) as GraphQLObjectType | undefined;
+        const ConflictType = build.getTypeByName(conflictTypeName) as
+          | GraphQLObjectType
+          | undefined;
+        return [TableType, ConflictType].filter(
+          (type): type is GraphQLObjectType => !!type
+        );
+      },
+
+      // planType determines which type (table or conflict) should be returned
+      // for a given result by checking if the conflict message is present.
+      planType: EXPORTABLE(
+        (get, lambda, list, tableTypeName, conflictTypeName) =>
+          function planType($specifier) {
+            const $row = get($specifier, "row");
+            const $conflict = get($specifier, "conflict");
+            const $insert = get($specifier, "insert");
+            const $conflictMessage = get($conflict, "message");
+
+            // Determine the __typename by checking if a conflict message exists.
+            // If conflict.message is not null, we have a constraint violation.
+            // Otherwise, the insert succeeded and we return the table type.
+            const $__typename = lambda(
+              list([$conflictMessage, $row]),
+              ([conflictMessage]) =>
+                conflictMessage != null ? conflictTypeName : tableTypeName,
+              true
+            );
+            return {
+              $__typename,
+
+              // planForType returns the appropriate step for each union member type.
+              // For the table type (successful insert), we return $insert which
+              // provides proper field access to the inserted row's columns.
+              // For the conflict type, we return $conflict which contains the
+              // constraint violation details.
+              planForType(t) {
+                if (t.name === tableTypeName) {
+                  return $insert;
+                } else if (t.name === conflictTypeName) {
+                  return $conflict;
+                }
+                throw new Error(
+                  `Unexpected type '${t.name}' when resolving create result union`
+                );
+              },
+            };
+          },
+        [get, lambda, list, tableTypeName, conflictTypeName]
+      ),
+    }),
+    `PgMutationCreateWithConflictsPlugin result union for ${resource.name}`
+  );
+};
+
+// registerPayloadType creates and registers the mutation payload type.
+// This wraps the result union with clientMutationId.
+const registerPayloadType = (
+  build: GraphileBuild.Build,
+  resource: PgResource<any, any, any, any, any>,
+  tableTypeName: string,
+  payloadTypeName: string,
+  resultTypeName: string
+) => {
+  const {
+    graphql: { GraphQLString },
+  } = build;
+
+  build.registerObjectType(
+    payloadTypeName,
+    {
+      isMutationPayload: true,
+      isPgCreatePayloadType: true,
+      pgTypeResource: resource,
+    },
+    () => ({
+      assertStep: assertExecutableStep,
+      description: `The output of our create \`${tableTypeName}\` mutation.`,
+      fields: ({ fieldWithHooks }) => {
+        const resultType = build.getOutputTypeByName(resultTypeName);
+        return {
+          clientMutationId: {
+            type: GraphQLString,
+            plan: EXPORTABLE(
+              () =>
+                function plan(
+                  $mutation: ObjectStep<{
+                    clientMutationId: any;
+                  }>
+                ) {
+                  return $mutation.get("clientMutationId");
+                },
+              []
+            ),
+          },
+          ...(resultType
+            ? {
+                result: fieldWithHooks(
+                  {
+                    fieldName: "result",
+                    fieldBehaviorScope: `insert:resource:select`,
+                  },
+                  () => ({
+                    description: build.wrapDescription(
+                      `What happened when attempting to create a \`${tableTypeName}\`.`,
+                      "field"
+                    ),
+                    type: resultType,
+                    plan: EXPORTABLE(
+                      () =>
+                        function plan($payload: ObjectStep<any>) {
+                          return $payload.get("result");
+                        },
+                      []
+                    ),
+                  })
+                ),
+              }
+            : null),
+        };
+      },
+    }),
+    `PgMutationCreateWithConflictsPlugin payload for ${resource.name}`
+  );
+};
+
 // PgMutationCreateWithConflictsPlugin generates GraphQL create mutations that
 // return a union type of either the created record or conflict details, instead
 // of throwing errors when database constraints are violated.
@@ -217,11 +592,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
       // (input types, conflict types, union types, payload types) for insertable resources.
       // This happens before the actual mutation fields are added to the schema.
       init(_, build) {
-        const {
-          graphql: { GraphQLString, GraphQLNonNull, isInputType },
-          inflection,
-          grafast: { get, lambda, list, object, trap, TRAP_ERROR },
-        } = build;
+        const { inflection } = build;
 
         // Find all PostgreSQL resources that should have create mutations generated.
         const insertableResources = Object.values(build.pgResources).filter(
@@ -233,274 +604,37 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             const tableTypeName = inflection.tableType(resource.codec);
             const inputTypeName = inflection.createInputType(resource);
             const tableFieldName = inflection.tableFieldName(resource);
-
-            // Register the input type that defines the structure of data to be inserted.
-            // This type includes fields for clientMutationId and the table's input fields.
-            build.registerInputObjectType(
-              inputTypeName,
-              { isMutationInput: true },
-              () => ({
-                description: `All input for the create \`${tableTypeName}\` mutation.`,
-                fields: ({ fieldWithHooks }) => {
-                  const TableInput = build.getGraphQLTypeByPgCodec(
-                    resource.codec,
-                    "input"
-                  );
-                  return {
-                    clientMutationId: {
-                      type: GraphQLString,
-                      apply: EXPORTABLE(
-                        () =>
-                          function apply(qb: PgInsertSingleQueryBuilder, val) {
-                            qb.setMeta("clientMutationId", val);
-                          },
-                        []
-                      ),
-                    },
-                    ...(isInputType(TableInput)
-                      ? {
-                          [tableFieldName]: fieldWithHooks(
-                            {
-                              fieldName: tableFieldName,
-                              fieldBehaviorScope: `insert:input:record`,
-                            },
-                            () => ({
-                              description: build.wrapDescription(
-                                `The \`${tableTypeName}\` to be created by this mutation.`,
-                                "field"
-                              ),
-                              type: new GraphQLNonNull(TableInput),
-                              apply: EXPORTABLE(
-                                () =>
-                                  function plan(
-                                    qb: PgInsertSingleQueryBuilder,
-                                    arg
-                                  ) {
-                                    if (arg != null) {
-                                      return qb.setBuilder();
-                                    }
-                                  },
-                                []
-                              ),
-                            })
-                          ),
-                        }
-                      : null),
-                  };
-                },
-              }),
-              `PgMutationCreateWithConflictsPlugin input for ${resource.name}`
-            );
-
-            // Register the conflict type that contains details about database constraint
-            // violations. This type is returned when an insert fails due to a constraint.
             const conflictTypeName = inflection.createConflictType(resource);
-            build.registerObjectType(
-              conflictTypeName,
-              {
-                pgTypeResource: resource,
-              },
-              () => ({
-                assertStep: assertExecutableStep,
-                description: build.wrapDescription(
-                  `Details of a database constraint preventing a \`${tableTypeName}\` from being created.`,
-                  "type"
-                ),
-                fields: ({ fieldWithHooks }) => ({
-                  message: fieldWithHooks({ fieldName: "message" }, () => ({
-                    type: GraphQLString,
-                    description: build.wrapDescription(
-                      "Human-readable description of the conflict.",
-                      "field"
-                    ),
-                    plan: EXPORTABLE(
-                      () =>
-                        function plan($conflict: ObjectStep) {
-                          return $conflict.get("message");
-                        },
-                      []
-                    ),
-                  })),
-                  code: fieldWithHooks({ fieldName: "code" }, () => ({
-                    type: GraphQLString,
-                    description: build.wrapDescription(
-                      "PostgreSQL error code describing the constraint failure.",
-                      "field"
-                    ),
-                    plan: EXPORTABLE(
-                      () =>
-                        function plan($conflict: ObjectStep) {
-                          return $conflict.get("code");
-                        },
-                      []
-                    ),
-                  })),
-                  constraint: fieldWithHooks(
-                    { fieldName: "constraint" },
-                    () => ({
-                      type: GraphQLString,
-                      description: build.wrapDescription(
-                        "Name of the violated database constraint, if available.",
-                        "field"
-                      ),
-                      plan: EXPORTABLE(
-                        () =>
-                          function plan($conflict: ObjectStep) {
-                            return $conflict.get("constraint");
-                          },
-                        []
-                      ),
-                    })
-                  ),
-                  detail: fieldWithHooks({ fieldName: "detail" }, () => ({
-                    type: GraphQLString,
-                    description: build.wrapDescription(
-                      "Further details supplied by PostgreSQL for this constraint violation.",
-                      "field"
-                    ),
-                    plan: EXPORTABLE(
-                      () =>
-                        function plan($conflict: ObjectStep) {
-                          return $conflict.get("detail");
-                        },
-                      []
-                    ),
-                  })),
-                }),
-              }),
-              `PgMutationCreateWithConflictsPlugin conflict type for ${resource.name}`
-            );
-
-            // Register the union type that represents the result of an insert operation.
-            // This union contains either the successfully created record (table type) or
-            // conflict details (conflict type).
             const resultTypeName = inflection.createResultUnionType(resource);
-            build.registerUnionType(
-              resultTypeName,
-              {},
-              () => ({
-                description: build.wrapDescription(
-                  `Outcome of attempting to create a \`${tableTypeName}\`.`,
-                  "type"
-                ),
-                types: () => {
-                  const TableType = build.getGraphQLTypeByPgCodec(
-                    resource.codec,
-                    "output"
-                  ) as GraphQLObjectType | undefined;
-                  const ConflictType = build.getTypeByName(conflictTypeName) as
-                    | GraphQLObjectType
-                    | undefined;
-                  return [TableType, ConflictType].filter(
-                    (type): type is GraphQLObjectType => !!type
-                  );
-                },
-
-                // planType determines which type (table or conflict) should be returned
-                // for a given result by checking if the conflict message is present.
-                planType: EXPORTABLE(
-                  (get, lambda, list, tableTypeName, conflictTypeName) =>
-                    function planType($specifier) {
-                      const $row = get($specifier, "row");
-                      const $conflict = get($specifier, "conflict");
-                      const $insert = get($specifier, "insert");
-                      const $conflictMessage = get($conflict, "message");
-
-                      // Determine the __typename by checking if a conflict message exists.
-                      // If conflict.message is not null, we have a constraint violation.
-                      // Otherwise, the insert succeeded and we return the table type.
-                      const $__typename = lambda(
-                        list([$conflictMessage, $row]),
-                        ([conflictMessage]) =>
-                          conflictMessage != null
-                            ? conflictTypeName
-                            : tableTypeName,
-                        true
-                      );
-                      return {
-                        $__typename,
-
-                        // planForType returns the appropriate step for each union member type.
-                        // For the table type (successful insert), we return $insert which
-                        // provides proper field access to the inserted row's columns.
-                        // For the conflict type, we return $conflict which contains the
-                        // constraint violation details.
-                        planForType(t) {
-                          if (t.name === tableTypeName) {
-                            return $insert;
-                          } else if (t.name === conflictTypeName) {
-                            return $conflict;
-                          }
-                          throw new Error(
-                            `Unexpected type '${t.name}' when resolving create result union`
-                          );
-                        },
-                      };
-                    },
-                  [get, lambda, list, tableTypeName, conflictTypeName]
-                ),
-              }),
-              `PgMutationCreateWithConflictsPlugin result union for ${resource.name}`
-            );
-
-            // Register the payload type that wraps the result union with clientMutationId.
-            // This is the actual return type of the create mutation field.
             const payloadTypeName = inflection.createPayloadType(resource);
-            build.registerObjectType(
+
+            // Register all necessary GraphQL types for this resource.
+            registerInputType(
+              build,
+              resource,
+              tableTypeName,
+              inputTypeName,
+              tableFieldName
+            );
+            registerConflictType(
+              build,
+              resource,
+              tableTypeName,
+              conflictTypeName
+            );
+            registerResultUnionType(
+              build,
+              resource,
+              tableTypeName,
+              resultTypeName,
+              conflictTypeName
+            );
+            registerPayloadType(
+              build,
+              resource,
+              tableTypeName,
               payloadTypeName,
-              {
-                isMutationPayload: true,
-                isPgCreatePayloadType: true,
-                pgTypeResource: resource,
-              },
-              () => ({
-                assertStep: assertExecutableStep,
-                description: `The output of our create \`${tableTypeName}\` mutation.`,
-                fields: ({ fieldWithHooks }) => {
-                  const resultType = build.getOutputTypeByName(resultTypeName);
-                  return {
-                    clientMutationId: {
-                      type: GraphQLString,
-                      plan: EXPORTABLE(
-                        () =>
-                          function plan(
-                            $mutation: ObjectStep<{
-                              clientMutationId: any;
-                            }>
-                          ) {
-                            return $mutation.get("clientMutationId");
-                          },
-                        []
-                      ),
-                    },
-                    ...(resultType
-                      ? {
-                          result: fieldWithHooks(
-                            {
-                              fieldName: "result",
-                              fieldBehaviorScope: `insert:resource:select`,
-                            },
-                            () => ({
-                              description: build.wrapDescription(
-                                `What happened when attempting to create a \`${tableTypeName}\`.`,
-                                "field"
-                              ),
-                              type: resultType,
-                              plan: EXPORTABLE(
-                                () =>
-                                  function plan($payload: ObjectStep<any>) {
-                                    return $payload.get("result");
-                                  },
-                                []
-                              ),
-                            })
-                          ),
-                        }
-                      : null),
-                  };
-                },
-              }),
-              `PgMutationCreateWithConflictsPlugin payload for ${resource.name}`
+              resultTypeName
             );
           });
         });
