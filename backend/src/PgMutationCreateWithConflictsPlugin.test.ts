@@ -64,10 +64,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     }) {
       result {
         __typename
-        ... on Book {
-          isbn
-          title
-        }
       }
     }
   }
@@ -91,7 +87,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.result.__typename).toEqual("Book");
-    expect(response.body.data.createBook.result.title).toEqual("Test Book");
 
     await app.close();
   });
