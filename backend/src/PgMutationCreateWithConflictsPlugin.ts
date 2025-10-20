@@ -204,7 +204,8 @@ const makeAnalyzeInsertError = (tableTypeName: string) =>
   );
 
 // createConflictFields generates the GraphQL field definitions for the conflict type.
-// These fields expose the details of database constraint violations to clients.
+// Only exposes the message field to API consumers. Internal details like error codes,
+// constraint names, and database-specific details are intentionally hidden.
 const createConflictFields = (build: GraphileBuild.Build) => {
   const {
     graphql: { GraphQLString },
@@ -221,48 +222,6 @@ const createConflictFields = (build: GraphileBuild.Build) => {
         () =>
           function plan($conflict: ObjectStep) {
             return $conflict.get("message");
-          },
-        []
-      ),
-    })),
-    code: fieldWithHooks({ fieldName: "code" }, () => ({
-      type: GraphQLString,
-      description: build.wrapDescription(
-        "PostgreSQL error code describing the constraint failure.",
-        "field"
-      ),
-      plan: EXPORTABLE(
-        () =>
-          function plan($conflict: ObjectStep) {
-            return $conflict.get("code");
-          },
-        []
-      ),
-    })),
-    constraint: fieldWithHooks({ fieldName: "constraint" }, () => ({
-      type: GraphQLString,
-      description: build.wrapDescription(
-        "Name of the violated database constraint, if available.",
-        "field"
-      ),
-      plan: EXPORTABLE(
-        () =>
-          function plan($conflict: ObjectStep) {
-            return $conflict.get("constraint");
-          },
-        []
-      ),
-    })),
-    detail: fieldWithHooks({ fieldName: "detail" }, () => ({
-      type: GraphQLString,
-      description: build.wrapDescription(
-        "Further details supplied by PostgreSQL for this constraint violation.",
-        "field"
-      ),
-      plan: EXPORTABLE(
-        () =>
-          function plan($conflict: ObjectStep) {
-            return $conflict.get("detail");
           },
         []
       ),

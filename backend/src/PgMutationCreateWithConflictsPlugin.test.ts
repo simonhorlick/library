@@ -73,9 +73,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         __typename
         ... on BookIsbnConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -103,10 +100,8 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     );
 
     const conflict = response.body.data.createBook.result;
-    expect(conflict.code).toBe("23505"); // unique_violation
     expect(conflict.message).toBeDefined();
     expect(conflict.message).toContain("isbn");
-    expect(conflict.detail).toBeDefined();
 
     await app.close();
   });
@@ -224,9 +219,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         }
         ... on BookIsbnConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -280,9 +272,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         __typename
         ... on BookIsbnConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -310,9 +299,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     );
 
     const conflict = response.body.data.createBook.result;
-    expect(conflict.code).toBe("23505"); // unique_violation
     expect(conflict.message).toBeDefined();
-    expect(conflict.constraint).toBe("books_pkey");
 
     await app.close();
   });
@@ -337,9 +324,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         }
         ... on UserUsernameConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -385,9 +369,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     );
 
     const conflict = duplicateResponse.body.data.createUser.result;
-    expect(conflict.code).toBe("23505"); // unique_violation
     expect(conflict.message).toBeDefined();
-    expect(conflict.constraint).toBe("unique_user_username");
 
     await app.close();
   });
@@ -423,9 +405,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         }
         ... on UserEmailConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -462,9 +441,6 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
         }
         ... on UserEmailConflict {
           message
-          code
-          constraint
-          detail
         }
       }
     }
@@ -486,9 +462,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     );
 
     const conflict = duplicateResponse.body.data.createUser.result;
-    expect(conflict.code).toBe("23505"); // unique_violation
     expect(conflict.message).toBeDefined();
-    expect(conflict.constraint).toBe("unique_user_email");
 
     await app.close();
   });

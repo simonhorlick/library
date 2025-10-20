@@ -541,12 +541,6 @@ Conflict details when attempting to create a `Book` that violates the primary ke
 type BookIsbnConflict {
   """Human-readable description of the conflict."""
   message: String
-  """PostgreSQL error code describing the constraint failure."""
-  code: String
-  """Name of the violated database constraint, if available."""
-  constraint: String
-  """Further details supplied by PostgreSQL for this constraint violation."""
-  detail: String
 }
 
 """All input for the create `Book` mutation."""
@@ -599,12 +593,6 @@ Conflict details when attempting to create a `Author` that violates the primary 
 type AuthorIdConflict {
   """Human-readable description of the conflict."""
   message: String
-  """PostgreSQL error code describing the constraint failure."""
-  code: String
-  """Name of the violated database constraint, if available."""
-  constraint: String
-  """Further details supplied by PostgreSQL for this constraint violation."""
-  detail: String
 }
 
 """All input for the create `Author` mutation."""
@@ -657,12 +645,6 @@ Conflict details when attempting to create a `User` that violates the unique con
 type UserEmailConflict {
   """Human-readable description of the conflict."""
   message: String
-  """PostgreSQL error code describing the constraint failure."""
-  code: String
-  """Name of the violated database constraint, if available."""
-  constraint: String
-  """Further details supplied by PostgreSQL for this constraint violation."""
-  detail: String
 }
 
 """
@@ -671,12 +653,6 @@ Conflict details when attempting to create a `User` that violates the unique con
 type UserUsernameConflict {
   """Human-readable description of the conflict."""
   message: String
-  """PostgreSQL error code describing the constraint failure."""
-  code: String
-  """Name of the violated database constraint, if available."""
-  constraint: String
-  """Further details supplied by PostgreSQL for this constraint violation."""
-  detail: String
 }
 
 """
@@ -685,12 +661,6 @@ Conflict details when attempting to create a `User` that violates the primary ke
 type UserIdConflict {
   """Human-readable description of the conflict."""
   message: String
-  """PostgreSQL error code describing the constraint failure."""
-  code: String
-  """Name of the violated database constraint, if available."""
-  constraint: String
-  """Further details supplied by PostgreSQL for this constraint violation."""
-  detail: String
 }
 
 """All input for the create `User` mutation."""
