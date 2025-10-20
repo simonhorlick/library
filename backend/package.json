@@ -5,7 +5,7 @@
   "scripts": {
     "compile": "tsc",
     "prestart": "npm run compile",
-    "test": "vitest",
+    "test": "vitest run",
     "start": "GRAPHILE_ENV=development DEBUG=\"@dataplan/pg:PgExecutor:explain\" node ./dist/src/index.js"
   },
   "author": "",

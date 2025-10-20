@@ -5,6 +5,114 @@ import preset from "./graphile.config";
 import request from "supertest";
 import { grafserv } from "grafserv/fastify/v4";
 import Fastify from "fastify";
+import type { FastifyInstance } from "fastify";
+
+/**
+ * Helper function to create a Fastify server with PostGraphile.
+ */
+async function createTestServer(): Promise<{
+  app: FastifyInstance;
+  url: string;
+}> {
+  const pgl = postgraphile(preset);
+  const serv = pgl.createServ(grafserv);
+  const app = Fastify({
+    logger: false, // Disable logging in tests for cleaner output.
+  });
+  serv.addTo(app);
+
+  // Use port 0 to let the OS assign an available port.
+  const url = await app.listen({ port: 0 });
+
+  return { app, url };
+}
+
+/**
+ * Helper function to execute a GraphQL mutation and return the response.
+ */
+async function executeMutation(url: string, mutation: string) {
+  const response = await request(url).post("/graphql").send({
+    query: mutation,
+  });
+
+  return response;
+}
+
+/**
+ * Helper function to create a book mutation with conflict handling.
+ */
+function createBookMutation(
+  isbn: string,
+  title: string,
+  clientMutationId?: string
+): string {
+  const clientIdField = clientMutationId
+    ? `clientMutationId: "${clientMutationId}"`
+    : "";
+
+  return `mutation CreateBook {
+    createBook(input: {
+      ${clientIdField}
+      book: {
+        isbn: "${isbn}",
+        title: "${title}"
+      }
+    }) {
+      ${clientMutationId ? "clientMutationId" : ""}
+      result {
+        __typename
+        ... on Book {
+          isbn
+          title
+          createdAt
+          updatedAt
+        }
+        ... on BookIsbnConflict {
+          message
+        }
+      }
+    }
+  }`;
+}
+
+/**
+ * Helper function to create a user mutation with conflict handling.
+ */
+function createUserMutation(
+  email: string,
+  username: string,
+  clientMutationId?: string
+): string {
+  const clientIdField = clientMutationId
+    ? `clientMutationId: "${clientMutationId}"`
+    : "";
+
+  return `mutation CreateUser {
+    createUser(input: {
+      ${clientIdField}
+      user: {
+        email: "${email}",
+        username: "${username}"
+      }
+    }) {
+      ${clientMutationId ? "clientMutationId" : ""}
+      result {
+        __typename
+        ... on User {
+          id
+          username
+          email
+        }
+        ... on UserUsernameConflict {
+          message
+        }
+        ... on UserEmailConflict {
+          message
+        }
+      }
+    }
+  }`;
+}
 
 describe("PgMutationCreateWithConflictsPlugin", () => {
   let pool: Pool;
@@ -23,35 +131,10 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     await pool.end();
   });
   it("should return the correct response for conflict cases", async () => {
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      book:  {
-          isbn: "123",
-          title: "123"
-      }
-    }) {
-      result {
-        __typename
-      }
-    }
-  }
-  `;
+    const { app, url } = await createTestServer();
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9898 });
-
-    // send our request to the url of the test server
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const mutation = createBookMutation("123", "123");
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.result.__typename).toEqual(
@@ -62,37 +145,10 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   });
 
   it("should return conflict details for unique constraint violations", async () => {
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      book:  {
-          isbn: "123",
-          title: "Duplicate ISBN"
-      }
-    }) {
-      result {
-        __typename
-        ... on BookIsbnConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
+    const { app, url } = await createTestServer();
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9900 });
-
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const mutation = createBookMutation("123", "Duplicate ISBN");
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.result.__typename).toEqual(
@@ -107,40 +163,15 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   });
 
   it("should handle clientMutationId in successful creation", async () => {
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      clientMutationId: "test-mutation-123"
-      book:  {
-          isbn: "${Date.now()}",
-          title: "Test Book with Client ID"
-      }
-    }) {
-      clientMutationId
-      result {
-        __typename
-        ... on Book {
-          isbn
-          title
-        }
-      }
-    }
-  }
-  `;
+    const { app, url } = await createTestServer();
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9901 });
-
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const isbn = Date.now().toString();
+    const mutation = createBookMutation(
+      isbn,
+      "Test Book with Client ID",
+      "test-mutation-123"
+    );
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.clientMutationId).toBe(
@@ -155,39 +186,14 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   });
 
   it("should handle clientMutationId in conflict cases", async () => {
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      clientMutationId: "conflict-mutation-456"
-      book:  {
-          isbn: "123",
-          title: "Duplicate ISBN"
-      }
-    }) {
-      clientMutationId
-      result {
-        __typename
-        ... on BookIsbnConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
+    const { app, url } = await createTestServer();
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9902 });
-
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const mutation = createBookMutation(
+      "123",
+      "Duplicate ISBN",
+      "conflict-mutation-456"
+    );
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.clientMutationId).toBe(
@@ -201,45 +207,11 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   });
 
   it("should return all fields for successfully created book", async () => {
+    const { app, url } = await createTestServer();
+
     const isbn = Date.now().toString();
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      book:  {
-          isbn: "${isbn}",
-          title: "Complete Test Book"
-      }
-    }) {
-      result {
-        __typename
-        ... on Book {
-          isbn
-          title
-          createdAt
-          updatedAt
-        }
-        ... on BookIsbnConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
-
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9899 });
-
-    // send our request to the url of the test server
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const mutation = createBookMutation(isbn, "Complete Test Book");
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.result.__typename).toEqual("Book");
@@ -261,37 +233,10 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
 
   it("should return specific BookIsbnConflict type for ISBN unique constraint violations", async () => {
     // Test that the plugin generates a specific conflict type for the isbn primary key constraint.
-    const createMutation = `mutation CreateBook {
-    createBook(input:  {
-      book:  {
-          isbn: "123",
-          title: "Duplicate ISBN Test"
-      }
-    }) {
-      result {
-        __typename
-        ... on BookIsbnConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
+    const { app, url } = await createTestServer();
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9906 });
-
-    const response = await request(url).post("/graphql").send({
-      query: createMutation,
-    });
-
-    console.log(JSON.stringify(response.body, null, 2));
+    const mutation = createBookMutation("123", "Duplicate ISBN Test");
+    const response = await executeMutation(url, mutation);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.createBook.result.__typename).toEqual(
@@ -306,63 +251,22 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
 
   it("should return specific UserUsernameConflict type for username unique constraint violations", async () => {
     // Test that the plugin generates a specific conflict type for the unique_user_username constraint.
+    const { app, url } = await createTestServer();
+
     const timestamp = Date.now();
     const username = `duplicate_username_${timestamp}`;
-    const createUserMutation = `mutation CreateUser {
-    createUser(input:  {
-      user:  {
-          email: "test${timestamp}@example.com",
-          username: "${username}"
-      }
-    }) {
-      result {
-        __typename
-        ... on User {
-          id
-          username
-          email
-        }
-        ... on UserUsernameConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
-
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9907 });
+    const email = `test${timestamp}@example.com`;
+    const mutation = createUserMutation(email, username);
 
     // First, create a user with the username we'll try to duplicate.
-    const firstResponse = await request(url).post("/graphql").send({
-      query: createUserMutation,
-    });
-
-    console.log(
-      "First user creation:",
-      JSON.stringify(firstResponse.body, null, 2)
-    );
+    const firstResponse = await executeMutation(url, mutation);
     expect(firstResponse.body.errors).toBeUndefined();
     expect(firstResponse.body.data.createUser.result.__typename).toEqual(
       "User"
     );
 
     // Now try to create another user with the same username.
-    const duplicateResponse = await request(url).post("/graphql").send({
-      query: createUserMutation,
-    });
-
-    console.log(
-      "Duplicate username attempt:",
-      JSON.stringify(duplicateResponse.body, null, 2)
-    );
-
+    const duplicateResponse = await executeMutation(url, mutation);
     expect(duplicateResponse.body.errors).toBeUndefined();
     expect(duplicateResponse.body.data.createUser.result.__typename).toEqual(
       "UserUsernameConflict"
@@ -376,86 +280,22 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
 
   it("should return specific UserEmailConflict type for email unique constraint violations", async () => {
     // Test that the plugin generates a specific conflict type for the unique_user_email constraint.
-    const email = `duplicate_email_${Date.now()}@example.com`;
+    const { app, url } = await createTestServer();
+
     const timestamp = Date.now();
-
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9908 });
+    const email = `duplicate_email_${timestamp}@example.com`;
 
     // First, create a user with the email we'll try to duplicate.
-    const firstMutation = `mutation CreateUser {
-    createUser(input:  {
-      user:  {
-          email: "${email}",
-          username: "user_${timestamp}_1"
-      }
-    }) {
-      result {
-        __typename
-        ... on User {
-          id
-          username
-          email
-        }
-        ... on UserEmailConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
-
-    const firstResponse = await request(url).post("/graphql").send({
-      query: firstMutation,
-    });
-
-    console.log(
-      "First user creation:",
-      JSON.stringify(firstResponse.body, null, 2)
-    );
+    const firstMutation = createUserMutation(email, `user_${timestamp}_1`);
+    const firstResponse = await executeMutation(url, firstMutation);
     expect(firstResponse.body.errors).toBeUndefined();
     expect(firstResponse.body.data.createUser.result.__typename).toEqual(
       "User"
     );
 
     // Now try to create another user with the same email but different username.
-    const secondMutation = `mutation CreateUser {
-    createUser(input:  {
-      user:  {
-          email: "${email}",
-          username: "user_${timestamp}_2"
-      }
-    }) {
-      result {
-        __typename
-        ... on User {
-          id
-          username
-          email
-        }
-        ... on UserEmailConflict {
-          message
-        }
-      }
-    }
-  }
-  `;
-
-    const duplicateResponse = await request(url).post("/graphql").send({
-      query: secondMutation,
-    });
-
-    console.log(
-      "Duplicate email attempt:",
-      JSON.stringify(duplicateResponse.body, null, 2)
-    );
-
+    const secondMutation = createUserMutation(email, `user_${timestamp}_2`);
+    const duplicateResponse = await executeMutation(url, secondMutation);
     expect(duplicateResponse.body.errors).toBeUndefined();
     expect(duplicateResponse.body.data.createUser.result.__typename).toEqual(
       "UserEmailConflict"
@@ -470,34 +310,19 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   it("should include all constraint-specific conflict types in the union", async () => {
     // This test verifies that the CreateBookResult union includes both the Book type
     // and individual conflict types for each constraint (e.g., IsbnConflict).
+    const { app, url } = await createTestServer();
+
     const introspectionQuery = `query IntrospectCreateBookResult {
-    __type(name: "CreateBookResult") {
-      kind
-      name
-      possibleTypes {
+      __type(name: "CreateBookResult") {
+        kind
         name
+        possibleTypes {
+          name
+        }
       }
-    }
-  }
-  `;
+    }`;
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9909 });
-
-    const response = await request(url).post("/graphql").send({
-      query: introspectionQuery,
-    });
-
-    console.log(
-      "Introspection result:",
-      JSON.stringify(response.body, null, 2)
-    );
+    const response = await executeMutation(url, introspectionQuery);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.__type.kind).toEqual("UNION");
@@ -515,34 +340,19 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   it("should include all user constraint-specific conflict types in the union", async () => {
     // This test verifies that the CreateUserResult union includes the User type
     // and individual conflict types for username and email constraints.
+    const { app, url } = await createTestServer();
+
     const introspectionQuery = `query IntrospectCreateUserResult {
-    __type(name: "CreateUserResult") {
-      kind
-      name
-      possibleTypes {
+      __type(name: "CreateUserResult") {
+        kind
         name
+        possibleTypes {
+          name
+        }
       }
-    }
-  }
-  `;
+    }`;
 
-    const pgl = postgraphile(preset);
-    const serv = pgl.createServ(grafserv);
-    const app = Fastify({
-      logger: true,
-    });
-    serv.addTo(app);
-
-    const url = await app.listen({ port: 9910 });
-
-    const response = await request(url).post("/graphql").send({
-      query: introspectionQuery,
-    });
-
-    console.log(
-      "Introspection result:",
-      JSON.stringify(response.body, null, 2)
-    );
+    const response = await executeMutation(url, introspectionQuery);
 
     expect(response.body.errors).toBeUndefined();
     expect(response.body.data.__type.kind).toEqual("UNION");
