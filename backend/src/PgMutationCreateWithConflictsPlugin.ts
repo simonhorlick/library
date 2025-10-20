@@ -382,7 +382,9 @@ const registerConstraintConflictTypes = (
       `that violates the ${
         constraint.constraintType === "p" ? "primary key" : "unique constraint"
       } ` +
-      `on column${constraint.columnNames.length > 1 ? "s" : ""} (${columnList}).`;
+      `on column${
+        constraint.columnNames.length > 1 ? "s" : ""
+      } (${columnList}).`;
 
     registerConflictType(
       build,
@@ -631,7 +633,9 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
       constraintConflictType(options, constraintInfo) {
         // Use the GraphQL type name (singular form) stored in constraintInfo.
         // This is populated during schema generation to ensure consistency.
-        const tableTypeName = constraintInfo.tableTypeName || this.upperCamelCase(constraintInfo.tableName);
+        const tableTypeName =
+          constraintInfo.tableTypeName ||
+          this.upperCamelCase(constraintInfo.tableName);
         const columnPart = constraintInfo.columnNames
           .map((col) => this.upperCamelCase(col))
           .join("");

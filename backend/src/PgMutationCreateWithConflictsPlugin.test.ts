@@ -396,7 +396,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     // Test that the plugin generates a specific conflict type for the unique_user_email constraint.
     const email = `duplicate_email_${Date.now()}@example.com`;
     const timestamp = Date.now();
-    
+
     const pgl = postgraphile(preset);
     const serv = pgl.createServ(grafserv);
     const app = Fastify({
@@ -431,7 +431,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     }
   }
   `;
-    
+
     const firstResponse = await request(url).post("/graphql").send({
       query: firstMutation,
     });
@@ -470,7 +470,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     }
   }
   `;
-    
+
     const duplicateResponse = await request(url).post("/graphql").send({
       query: secondMutation,
     });
