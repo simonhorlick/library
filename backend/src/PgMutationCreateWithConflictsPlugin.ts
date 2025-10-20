@@ -328,6 +328,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     function planType($specifier) {
                       const $row = get($specifier, "row");
                       const $conflict = get($specifier, "conflict");
+                      const $insert = get($specifier, "insert");
                       const $conflictMessage = get($conflict, "message");
                       const $__typename = lambda(
                         list([$conflictMessage, $row]),
@@ -341,7 +342,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         $__typename,
                         planForType(t) {
                           if (t.name === tableTypeName) {
-                            return $row;
+                            return $insert;
                           } else if (t.name === conflictTypeName) {
                             return $conflict;
                           }
@@ -573,6 +574,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           const $result = object({
                             row: $row,
                             conflict: $conflict,
+                            insert: $insert,
                           });
 
                           const $payload = object({

@@ -64,6 +64,15 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     }) {
       result {
         __typename
+        ... on Book {
+          isbn
+        }
+        ... on CreateBookConflict {
+          message
+          code
+          constraint
+          detail
+        }
       }
     }
   }
