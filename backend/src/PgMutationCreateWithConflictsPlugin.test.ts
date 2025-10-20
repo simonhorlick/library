@@ -309,4 +309,266 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
 
     await app.close();
   });
+
+  it("should return specific IsbnConflict type for ISBN unique constraint violations", async () => {
+    // Test that the plugin generates a specific conflict type for the isbn primary key constraint.
+    const createMutation = `mutation CreateBook {
+    createBook(input:  {
+      book:  {
+          isbn: "123",
+          title: "Duplicate ISBN Test"
+      }
+    }) {
+      result {
+        __typename
+        ... on IsbnConflict {
+          message
+          code
+          constraint
+          detail
+        }
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9906 });
+
+    const response = await request(url).post("/graphql").send({
+      query: createMutation,
+    });
+
+    console.log(JSON.stringify(response.body, null, 2));
+
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.createBook.result.__typename).toEqual(
+      "IsbnConflict"
+    );
+
+    const conflict = response.body.data.createBook.result;
+    expect(conflict.code).toBe("23505"); // unique_violation
+    expect(conflict.message).toBeDefined();
+    expect(conflict.constraint).toBe("books_pkey");
+
+    await app.close();
+  });
+
+  it("should return specific UsernameConflict type for username unique constraint violations", async () => {
+    // Test that the plugin generates a specific conflict type for the unique_user_username constraint.
+    const createUserMutation = `mutation CreateUser {
+    createUser(input:  {
+      user:  {
+          email: "test${Date.now()}@example.com",
+          username: "duplicate_username"
+      }
+    }) {
+      result {
+        __typename
+        ... on User {
+          id
+          username
+          email
+        }
+        ... on UsernameConflict {
+          message
+          code
+          constraint
+          detail
+        }
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9907 });
+
+    // First, create a user with the username we'll try to duplicate.
+    const firstResponse = await request(url).post("/graphql").send({
+      query: createUserMutation,
+    });
+
+    console.log("First user creation:", JSON.stringify(firstResponse.body, null, 2));
+    expect(firstResponse.body.errors).toBeUndefined();
+    expect(firstResponse.body.data.createUser.result.__typename).toEqual("User");
+
+    // Now try to create another user with the same username.
+    const duplicateResponse = await request(url).post("/graphql").send({
+      query: createUserMutation,
+    });
+
+    console.log("Duplicate username attempt:", JSON.stringify(duplicateResponse.body, null, 2));
+
+    expect(duplicateResponse.body.errors).toBeUndefined();
+    expect(duplicateResponse.body.data.createUser.result.__typename).toEqual(
+      "UsernameConflict"
+    );
+
+    const conflict = duplicateResponse.body.data.createUser.result;
+    expect(conflict.code).toBe("23505"); // unique_violation
+    expect(conflict.message).toBeDefined();
+    expect(conflict.constraint).toBe("unique_user_username");
+
+    await app.close();
+  });
+
+  it("should return specific EmailConflict type for email unique constraint violations", async () => {
+    // Test that the plugin generates a specific conflict type for the unique_user_email constraint.
+    const email = `duplicate_email_${Date.now()}@example.com`;
+    const createUserMutation = `mutation CreateUser {
+    createUser(input:  {
+      user:  {
+          email: "${email}",
+          username: "user_${Date.now()}"
+      }
+    }) {
+      result {
+        __typename
+        ... on User {
+          id
+          username
+          email
+        }
+        ... on EmailConflict {
+          message
+          code
+          constraint
+          detail
+        }
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9908 });
+
+    // First, create a user with the email we'll try to duplicate.
+    const firstResponse = await request(url).post("/graphql").send({
+      query: createUserMutation,
+    });
+
+    console.log("First user creation:", JSON.stringify(firstResponse.body, null, 2));
+    expect(firstResponse.body.errors).toBeUndefined();
+    expect(firstResponse.body.data.createUser.result.__typename).toEqual("User");
+
+    // Now try to create another user with the same email.
+    const duplicateResponse = await request(url).post("/graphql").send({
+      query: createUserMutation,
+    });
+
+    console.log("Duplicate email attempt:", JSON.stringify(duplicateResponse.body, null, 2));
+
+    expect(duplicateResponse.body.errors).toBeUndefined();
+    expect(duplicateResponse.body.data.createUser.result.__typename).toEqual(
+      "EmailConflict"
+    );
+
+    const conflict = duplicateResponse.body.data.createUser.result;
+    expect(conflict.code).toBe("23505"); // unique_violation
+    expect(conflict.message).toBeDefined();
+    expect(conflict.constraint).toBe("unique_user_email");
+
+    await app.close();
+  });
+
+  it("should include all constraint-specific conflict types in the union", async () => {
+    // This test verifies that the CreateBookResult union includes both the Book type
+    // and individual conflict types for each constraint (e.g., IsbnConflict).
+    const introspectionQuery = `query IntrospectCreateBookResult {
+    __type(name: "CreateBookResult") {
+      kind
+      name
+      possibleTypes {
+        name
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9909 });
+
+    const response = await request(url).post("/graphql").send({
+      query: introspectionQuery,
+    });
+
+    console.log("Introspection result:", JSON.stringify(response.body, null, 2));
+
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.__type.kind).toEqual("UNION");
+    expect(response.body.data.__type.name).toEqual("CreateBookResult");
+
+    const typeNames = response.body.data.__type.possibleTypes.map((t: any) => t.name);
+    expect(typeNames).toContain("Book");
+    expect(typeNames).toContain("IsbnConflict");
+
+    await app.close();
+  });
+
+  it("should include all user constraint-specific conflict types in the union", async () => {
+    // This test verifies that the CreateUserResult union includes the User type
+    // and individual conflict types for username and email constraints.
+    const introspectionQuery = `query IntrospectCreateUserResult {
+    __type(name: "CreateUserResult") {
+      kind
+      name
+      possibleTypes {
+        name
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9910 });
+
+    const response = await request(url).post("/graphql").send({
+      query: introspectionQuery,
+    });
+
+    console.log("Introspection result:", JSON.stringify(response.body, null, 2));
+
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.__type.kind).toEqual("UNION");
+    expect(response.body.data.__type.name).toEqual("CreateUserResult");
+
+    const typeNames = response.body.data.__type.possibleTypes.map((t: any) => t.name);
+    expect(typeNames).toContain("User");
+    expect(typeNames).toContain("UsernameConflict");
+    expect(typeNames).toContain("EmailConflict");
+
+    await app.close();
+  });
 });
