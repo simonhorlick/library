@@ -27,7 +27,7 @@ class SafePgInsertSingleStep<
 > extends PgInsertSingleStep<TResource> {
   async execute(details: ExecutionDetails): Promise<GrafastResultsList<any>> {
     const results = await super.execute(details);
-    
+
     // Map over the results to catch any rejected promises and convert them to values.
     // This is critical for preventing database errors from reaching the GraphQL
     // errors array.
@@ -135,27 +135,27 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
       createField(options, resource) {
         return this.camelCase(`create-${this.tableType(resource.codec)}`);
       },
-      
+
       // Generate the input type name (e.g., "CreateBookInput").
       createInputType(options, resource) {
         return this.upperCamelCase(`${this.createField(resource)}-input`);
       },
-      
+
       // Generate the payload type name (e.g., "CreateBookPayload").
       createPayloadType(options, resource) {
         return this.upperCamelCase(`${this.createField(resource)}-payload`);
       },
-      
+
       // Generate the result union type name (e.g., "CreateBookResult").
       createResultUnionType(options, resource) {
         return this.upperCamelCase(`${this.createField(resource)}-result`);
       },
-      
+
       // Generate the conflict type name (e.g., "CreateBookConflict").
       createConflictType(options, resource) {
         return this.upperCamelCase(`${this.createField(resource)}-conflict`);
       },
-      
+
       // Generate the table field name used in the input type (e.g., "book").
       tableFieldName(options, resource) {
         return this.camelCase(`${this.tableType(resource.codec)}`);
@@ -173,7 +173,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             "can select the row that was inserted (on the mutation payload)",
           entities: ["pgResource"],
         },
-        
+
         // "record" marks a type as suitable for use in insert mutations.
         record: {
           description: "record type used for insert",
@@ -194,7 +194,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
               behavior,
               "insert:resource:select",
             ];
-            
+
             // Only enable insert behavior for standard tables (not functions,
             // polymorphic types, or anonymous types).
             if (
@@ -222,7 +222,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
           inflection,
           grafast: { get, lambda, list, object, trap, TRAP_ERROR },
         } = build;
-        
+
         // Find all PostgreSQL resources that should have create mutations generated.
         const insertableResources = Object.values(build.pgResources).filter(
           (resource) => isInsertable(build, resource)
@@ -233,7 +233,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             const tableTypeName = inflection.tableType(resource.codec);
             const inputTypeName = inflection.createInputType(resource);
             const tableFieldName = inflection.tableFieldName(resource);
-            
+
             // Register the input type that defines the structure of data to be inserted.
             // This type includes fields for clientMutationId and the table's input fields.
             build.registerInputObjectType(
@@ -395,7 +395,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     (type): type is GraphQLObjectType => !!type
                   );
                 },
-                
+
                 // planType determines which type (table or conflict) should be returned
                 // for a given result by checking if the conflict message is present.
                 planType: EXPORTABLE(
@@ -405,7 +405,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                       const $conflict = get($specifier, "conflict");
                       const $insert = get($specifier, "insert");
                       const $conflictMessage = get($conflict, "message");
-                      
+
                       // Determine the __typename by checking if a conflict message exists.
                       // If conflict.message is not null, we have a constraint violation.
                       // Otherwise, the insert succeeded and we return the table type.
@@ -419,7 +419,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                       );
                       return {
                         $__typename,
-                        
+
                         // planForType returns the appropriate step for each union member type.
                         // For the table type (successful insert), we return $insert which
                         // provides proper field access to the inserted row's columns.
@@ -520,7 +520,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
           scope: { isRootMutation },
           fieldWithHooks,
         } = context;
-        
+
         // Only add mutation fields to the root Mutation type.
         if (!isRootMutation) {
           return fields;
@@ -529,7 +529,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
         const insertableResources = Object.values(build.pgResources).filter(
           (resource) => isInsertable(build, resource)
         );
-        
+
         // Add a create mutation field for each insertable resource.
         return insertableResources.reduce((memo, resource) => {
           return build.recoverable(memo, () => {
@@ -596,7 +596,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                       };
                     }
                   }
-                  
+
                   // Not a constraint error, return null to indicate this error should
                   // be handled through normal error channels.
                   return null;
@@ -633,7 +633,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     // deprecationReason: tagToString(
                     //   resource.extensions?.tags?.deprecated,
                     // ),
-                    
+
                     // The plan function executes during query planning and sets up the
                     // steps needed to handle both successful inserts and constraint violations.
                     plan: EXPORTABLE(
@@ -655,7 +655,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                             resource,
                             Object.create(null)
                           );
-                          
+
                           // Preserve the clientMutationId even if the insert fails.
                           // This allows clients to correlate responses with requests.
                           const $clientMutationIdInput = args.getRaw([
@@ -667,7 +667,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                             (value) => (value == null ? null : value),
                             true
                           );
-                          
+
                           // Apply the input arguments to the insert step.
                           args.apply($insert);
 
@@ -676,7 +676,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           const $inspection = trap($insert, TRAP_ERROR, {
                             valueForError: "PASS_THROUGH",
                           });
-                          
+
                           // Analyze the result to see if it's a constraint error.
                           // Returns structured conflict details or null.
                           const $errorDetails = lambda(
@@ -684,14 +684,14 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                             analyzeInsertError,
                             true
                           );
-                          
+
                           // Determine if we have a constraint violation.
                           const $isConstraint = lambda(
                             $errorDetails,
                             (details) => details != null,
                             true
                           );
-                          
+
                           // Trap the insert again to get either the inserted row or NULL on error.
                           // This provides a fallback value for the union type discrimination.
                           const $row = trap($insert, TRAP_ERROR, {
