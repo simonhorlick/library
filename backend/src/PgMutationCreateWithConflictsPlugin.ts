@@ -8,24 +8,21 @@ import type {
   FieldArgs,
   ObjectStep,
 } from "grafast";
-import { assertExecutableStep, flagError, isPromiseLike } from "grafast";
+import { assertExecutableStep, isPromiseLike } from "grafast";
 import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 
-class GuardedPgInsertSingleStep<
+class SafePgInsertSingleStep<
   TResource extends PgResource<any, any, any, any, any> = PgResource
 > extends PgInsertSingleStep<TResource> {
   async execute(details: ExecutionDetails): Promise<GrafastResultsList<any>> {
     const results = await super.execute(details);
+    // Map over the results to catch any rejected promises
     return details.indexMap((i) => {
       const value = results[i];
       if (isPromiseLike(value)) {
-        return (value as Promise<any>).catch((error) =>
-          flagError(
-            error instanceof Error ? error : new Error(String(error)),
-            this.id
-          )
-        );
+        // Catch promise rejections and return the error as a value
+        return (value as Promise<any>).catch((error) => error);
       }
       return value;
     });
@@ -90,7 +87,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
   name: "PgMutationCreateWithConflictsPlugin",
   description:
     "Adds create mutations that return a union of the created record or constraint conflict details",
-  version: "0.0.1",
+  version: "0.1.0",
   after: ["smart-tags"],
 
   inflection: {
@@ -450,35 +447,38 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
             const analyzeInsertError = EXPORTABLE(
               (tableTypeName) =>
                 function analyze(value: any) {
+                  let error: unknown = value;
+
                   if (
-                    value &&
-                    typeof value === "object" &&
-                    "flags" in value &&
-                    "value" in value
+                    error &&
+                    typeof error === "object" &&
+                    "flags" in error &&
+                    "value" in error
                   ) {
-                    const error = (value as any).value;
-                    if (error && typeof error === "object") {
-                      const code = (error as any).code;
-                      if (typeof code === "string" && code.startsWith("23")) {
-                        const message =
+                    error = (error as any).value;
+                  }
+
+                  if (error && typeof error === "object") {
+                    const code = (error as any).code;
+                    if (typeof code === "string" && code.startsWith("23")) {
+                      const message =
+                        typeof (error as any).detail === "string"
+                          ? (error as any).detail
+                          : typeof (error as any).message === "string"
+                          ? (error as any).message
+                          : `Insert into '${tableTypeName}' violated a database constraint`;
+                      return {
+                        message,
+                        code,
+                        constraint:
+                          (error as any).constraint != null
+                            ? String((error as any).constraint)
+                            : null,
+                        detail:
                           typeof (error as any).detail === "string"
                             ? (error as any).detail
-                            : typeof (error as any).message === "string"
-                            ? (error as any).message
-                            : `Insert into '${tableTypeName}' violated a database constraint`;
-                        return {
-                          message,
-                          code,
-                          constraint:
-                            (error as any).constraint != null
-                              ? String((error as any).constraint)
-                              : null,
-                          detail:
-                            typeof (error as any).detail === "string"
-                              ? (error as any).detail
-                              : null,
-                        };
-                      }
+                            : null,
+                      };
                     }
                   }
                   return null;
@@ -513,12 +513,12 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     type: payloadType,
                     description: `Creates a single \`${tableTypeName}\`.`,
                     // deprecationReason: tagToString(
-                    //   resource.extensions?.tags?.deprecated
+                    //   resource.extensions?.tags?.deprecated,
                     // ),
                     plan: EXPORTABLE(
                       (
                         object,
-                        GuardedInsertStep,
+                        SafePgInsertSingleStep,
                         resource,
                         trap,
                         TRAP_ERROR,
@@ -527,7 +527,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         analyzeInsertError
                       ) =>
                         function plan(_: any, args: FieldArgs) {
-                          const $insert = new GuardedInsertStep(
+                          const $insert = new SafePgInsertSingleStep(
                             resource,
                             Object.create(null)
                           );
@@ -581,7 +581,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                         },
                       [
                         object,
-                        GuardedPgInsertSingleStep,
+                        SafePgInsertSingleStep,
                         resource,
                         trap,
                         TRAP_ERROR,
