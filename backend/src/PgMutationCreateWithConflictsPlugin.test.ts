@@ -50,5 +50,49 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     expect(response.body.data.createBook.result.__typename).toEqual(
       "CreateBookConflict"
     );
+
+    await app.close();
+  });
+
+  it("should return the correct response for successful creation", async () => {
+    const createMutation = `mutation CreateBook {
+    createBook(input:  {
+      book:  {
+          isbn: "${Date.now()}",
+          title: "Test Book"
+      }
+    }) {
+      result {
+        __typename
+        ... on Book {
+          isbn
+          title
+        }
+      }
+    }
+  }
+  `;
+
+    const pgl = postgraphile(preset);
+    const serv = pgl.createServ(grafserv);
+    const app = Fastify({
+      logger: true,
+    });
+    serv.addTo(app);
+
+    const url = await app.listen({ port: 9899 });
+
+    // send our request to the url of the test server
+    const response = await request(url).post("/graphql").send({
+      query: createMutation,
+    });
+
+    console.log(JSON.stringify(response.body, null, 2));
+
+    expect(response.body.errors).toBeUndefined();
+    expect(response.body.data.createBook.result.__typename).toEqual("Book");
+    expect(response.body.data.createBook.result.title).toEqual("Test Book");
+
+    await app.close();
   });
 });

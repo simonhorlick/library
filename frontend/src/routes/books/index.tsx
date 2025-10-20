@@ -63,7 +63,11 @@ export default component$(() => {
   return (
     <>
       <h1>Books</h1>
-      <a href="/auth/logout">Sign Out</a>
+      <div>
+        <a href="/auth/logout">Sign Out</a>
+        {" | "}
+        <a href="/books/new">Add New Book</a>
+      </div>
       <main>
         <Resource
           value={books}

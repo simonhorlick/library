@@ -6,7 +6,7 @@
     "compile": "tsc",
     "prestart": "npm run compile",
     "test": "vitest",
-    "start": "GRAPHILE_ENV=development node ./dist/src/index.js"
+    "start": "GRAPHILE_ENV=development DEBUG=\"@dataplan/pg:PgExecutor:explain\" node ./dist/src/index.js"
   },
   "author": "",
   "license": "ISC",
@@ -16,14 +16,19 @@
     "@graphile-contrib/pg-many-to-many": "^2.0.0-beta.9",
     "@graphile-contrib/pg-simplify-inflector": "^6.1.0",
     "@graphile/simplify-inflection": "^8.0.0-beta.8",
+    "@graphql-tools/utils": "^10.9.1",
     "@haathie/postgraphile-otel": "^0.1.0",
     "@haathie/postgraphile-reasonable-limits": "^0.1.1",
     "@opentelemetry/auto-instrumentations-node": "^0.64.6",
+    "@pgsql/traverse": "^17.1.0",
+    "check-constraints": "^1.0.0",
     "dotenv": "^17.2.3",
     "fastify": "^5.6.1",
-    "graphql": "16.9.0",
+    "graphql": "^16.11.0",
+    "graphql-constraint-directive": "^6.0.0",
     "jose": "^6.0.10",
     "pg": "^8.16.3",
+    "pgsql-parser": "^17.8.2",
     "postgraphile": "5.0.0-beta.49"
   },
   "devDependencies": {

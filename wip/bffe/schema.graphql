@@ -1,0 +1,45 @@
+type Query {
+  _dummy: String
+}
+
+type Mutation {
+  registerUser(input: RegisterUserInput!): RegisterUserPayload
+}
+
+scalar BigInt
+scalar Datetime
+
+input RegisterUserInput {
+  """
+  can generate client code using https://the-guild.dev/graphql/codegen/plugins/typescript/typescript-validation-schema
+  # https://github.com/confuser/graphql-constraint-directive
+  """
+  username: String! @constraint(minLength: 3, maxLength: 50)
+  email: String! @constraint(minLength: 5, maxLength: 255)
+}
+
+type RegisterUserPayload {
+  result: RegisterUserResult
+  query: Query
+}
+
+union RegisterUserResult = CreatedUser | UsernameConflict | EmailAddressConflict
+
+type CreatedUser {
+  id: BigInt!
+  username: String!
+  email: String!
+  bio: String
+  createdAt: Datetime!
+  updatedAt: Datetime!
+}
+
+type UsernameConflict {
+  message: String!
+  username: String!
+}
+
+type EmailAddressConflict {
+  message: String!
+  email: String!
+}

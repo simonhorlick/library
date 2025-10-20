@@ -4,11 +4,20 @@ import { makeV4Preset } from "postgraphile/presets/v4";
 import { makePgService } from "postgraphile/adaptors/pg";
 import { Pool } from "pg";
 import { jsonPgSmartTags } from "postgraphile/utils";
-import { RegisterUserPlugin } from "./register";
+import { RegisterUserPlugin } from "./register5";
 import { OTELPlugin } from "@haathie/postgraphile-otel";
 import { ReasonableLimitsPlugin } from "@haathie/postgraphile-reasonable-limits";
 import { PgManyToManyPreset } from "@graphile-contrib/pg-many-to-many";
 import { grafserv } from "postgraphile/grafserv/node";
+import { ExportGqlSchemaPlugin } from "./export-schema";
+import {
+  ConstraintDirectivePlugin,
+  ConstraintDirectiveTypeDefsPlugin,
+} from "check-constraints";
+import { ConflictTypesPlugin } from "./conflict-types";
+import { PgMutationCreatePlugin2 } from "./PgMutationCreatePlugin2";
+import { PgMutationCreateWithConflictsPlugin } from "./PgMutationCreateWithConflictsPlugin";
+import { PgMutationCreatePlugin } from "postgraphile/graphile-build-pg";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -41,6 +50,11 @@ const pool = new Pool({
   host: process.env.DB_HOST,
   port: Number.parseInt(process.env.DB_PORT || "5432"),
 });
+pool.on("connect", (client) => {
+  // Use a per-connection statement timeout, rather than per-request to avoid
+  // a database roundtrip.
+  client.query("SET statement_timeout TO 3000");
+});
 
 const MySmartTagsPlugin = jsonPgSmartTags({
   version: 1,
@@ -52,7 +66,7 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       */
       books: {
         tags: {
-          omit: "create,update,delete",
+          //omit: "create,update,delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
@@ -60,7 +74,7 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       },
       authors: {
         tags: {
-          omit: "create,update,delete",
+          //omit: "create,update,delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
@@ -68,7 +82,7 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       },
       users: {
         tags: {
-          omit: "create,delete",
+          omit: "delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
@@ -102,15 +116,20 @@ const MySmartTagsPlugin = jsonPgSmartTags({
   },
 });
 
-/** @type {GraphileConfig.Preset} */
-const preset = {
+const preset: GraphileConfig.Preset = {
   grafserv: {
+    // maskError(error) {
+    //   console.log(error);
+    //   return error;
+    // },
     dangerouslyAllowAllCORSRequests: true,
   },
   grafast: {
     timeouts: {
-      planning: 100,
-      execution: 1_000,
+      planning:
+        process.env.NODE_ENV === "production" ? 100 : Number.MAX_SAFE_INTEGER,
+      execution:
+        process.env.NODE_ENV === "production" ? 1_000 : Number.MAX_SAFE_INTEGER,
     },
     explain: true, // DO NOT ENABLE IN PRODUCTION!
   },
@@ -130,17 +149,21 @@ const preset = {
       // For development.
       showErrorStack: "json",
       extendedErrors: ["hint", "detail", "errcode"],
-      // Place the generated graphql schema at the project root.
-      exportGqlSchemaPath: "../backend.graphql",
     }),
   ],
 
   plugins: [
+    // ConflictTypesPlugin,
+    PgMutationCreateWithConflictsPlugin,
     MySmartTagsPlugin,
-    RegisterUserPlugin,
-    OTELPlugin,
-    ReasonableLimitsPlugin,
+    // RegisterUserPlugin,
+    // ConstraintDirectivePlugin,
+    // ConstraintDirectiveTypeDefsPlugin,
+    // OTELPlugin,
+    // ReasonableLimitsPlugin,
+    ExportGqlSchemaPlugin,
   ],
+  disablePlugins: ["PgMutationCreatePlugin", "PgMutationUpdateDeletePlugin"],
 
   pgServices: [
     makePgService({
@@ -150,7 +173,7 @@ const preset = {
         // Reduce the chance of denial of service attacks by setting a
         // statement timeout.
         // Adds another query to each request.
-        statement_timeout: "3000",
+        // statement_timeout: "3000",
 
         // Application-specific settings must be prefixed with a unique string.
         "app.token.sub": req.fastifyv4.request.token?.sub ?? null,

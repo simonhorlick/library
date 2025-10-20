@@ -10,6 +10,7 @@ import type { FieldArgs, ObjectStep } from "grafast";
 import { assertExecutableStep, object } from "grafast";
 import type { GraphQLOutputType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
+import { wrapWithLogging } from "./LoggingInsertStep";
 
 declare global {
   namespace GraphileConfig {
@@ -347,11 +348,10 @@ export const PgMutationCreatePlugin2: GraphileConfig.Plugin = {
                     //   resource.extensions?.tags?.deprecated
                     // ),
                     plan: EXPORTABLE(
-                      (object, pgInsertSingle, resource) =>
+                      (object, pgInsertSingle, resource, wrapWithLogging) =>
                         function plan(_: any, args: FieldArgs) {
-                          const $insert = pgInsertSingle(
-                            resource,
-                            Object.create(null)
+                          const $insert = wrapWithLogging(
+                            pgInsertSingle(resource, Object.create(null))
                           );
                           args.apply($insert);
                           const plan = object({
@@ -359,7 +359,7 @@ export const PgMutationCreatePlugin2: GraphileConfig.Plugin = {
                           });
                           return plan;
                         },
-                      [object, pgInsertSingle, resource]
+                      [object, pgInsertSingle, resource, wrapWithLogging]
                     ),
                   }
                 ),

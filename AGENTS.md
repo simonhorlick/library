@@ -1,0 +1,1 @@
+After each successful change, create a commit with a concise message describing the change.

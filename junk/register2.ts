@@ -1,4 +1,4 @@
-import { withPgClient } from "@dataplan/pg";
+import { sideEffectWithPgClientTransaction, withPgClient } from "@dataplan/pg";
 import { extendSchema } from "postgraphile/utils";
 import {
   ObjectStep,
@@ -9,6 +9,7 @@ import {
   list,
   get,
   lambda,
+  makeGrafastSchema,
 } from "postgraphile/grafast";
 import { DatabaseError } from "pg";
 
@@ -23,8 +24,8 @@ export const RegisterUserPlugin = extendSchema((build) => {
       }
 
       input RegisterUserInput {
-        username: String
-        email: String
+        sub: String!
+        email: String!
       }
 
       type RegisterUserPayload {
@@ -47,11 +48,11 @@ export const RegisterUserPlugin = extendSchema((build) => {
     objects: {
       Mutation: {
         plans: {
-          registerUser(_, { $input: { $username, $email } }) {
+          registerUser(_, { $input: { $sub, $email } }) {
             const $result = withPgClient(
               executor,
-              list([$username, $email]),
-              async (pgClient, [username, email]) => {
+              list([$sub, $email]),
+              async (pgClient, [sub, email]) => {
                 try {
                   return await pgClient.withTransaction(async (pgClient) => {
                     const {
@@ -61,25 +62,25 @@ export const RegisterUserPlugin = extendSchema((build) => {
                       username: string;
                     }>({
                       text: `
-                      insert into public.users (email, username)
-                      values ($1,$2)
+                      insert into public.users (email,sub)
+                      values ($1, $2)
                       returning *`,
-                      values: [email, username],
+                      values: [email, sub],
                     });
 
                     await sendEmail(email, "Welcome!");
 
-                    return { id: user.id };
+                    return { id: user.id, __typename: "User" };
                   });
                 } catch (e) {
                   if (e instanceof DatabaseError && e.code === "23505") {
                     if (e.constraint === "unique_user_username") {
                       return {
                         __typename: "UsernameConflict",
-                        message: `The username '${username}' is already in use`,
-                        username,
+                        message: `The username is already in use`,
+                        username: "username",
                       };
-                    } else if (e.constraint === "unique_user_email") {
+                    } else if (e.constraint === "unique_email") {
                       return {
                         __typename: "EmailAddressConflict",
                         message: `The email address '${email}' is already in use`,
@@ -134,6 +135,9 @@ export const RegisterUserPlugin = extendSchema((build) => {
             planForType(t) {
               switch (t.name) {
                 case "UsernameConflict":
+                  // These types just use their objects directly
+                  return $obj;
+
                 case "EmailAddressConflict":
                   // These types just use their objects directly
                   return $obj;
