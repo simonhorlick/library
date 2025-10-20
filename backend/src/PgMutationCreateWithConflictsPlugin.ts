@@ -328,10 +328,11 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     function planType($specifier) {
                       const $row = get($specifier, "row");
                       const $conflict = get($specifier, "conflict");
+                      const $conflictMessage = get($conflict, "message");
                       const $__typename = lambda(
-                        list([$row, $conflict]),
-                        ([row]) =>
-                          row != null ? tableTypeName : conflictTypeName,
+                        list([$conflictMessage, $row]),
+                        ([conflictMessage]) =>
+                          conflictMessage != null ? conflictTypeName : tableTypeName,
                         true
                       );
                       return {
