@@ -4,20 +4,14 @@ import { makeV4Preset } from "postgraphile/presets/v4";
 import { makePgService } from "postgraphile/adaptors/pg";
 import { Pool } from "pg";
 import { jsonPgSmartTags } from "postgraphile/utils";
-import { RegisterUserPlugin } from "./register5";
-import { OTELPlugin } from "@haathie/postgraphile-otel";
 import { ReasonableLimitsPlugin } from "@haathie/postgraphile-reasonable-limits";
 import { PgManyToManyPreset } from "@graphile-contrib/pg-many-to-many";
-import { grafserv } from "postgraphile/grafserv/node";
 import { ExportGqlSchemaPlugin } from "./export-schema";
 import {
   ConstraintDirectivePlugin,
   ConstraintDirectiveTypeDefsPlugin,
 } from "check-constraints";
-import { ConflictTypesPlugin } from "./conflict-types";
-import { PgMutationCreatePlugin2 } from "./PgMutationCreatePlugin2";
-import { PgMutationCreateWithConflictsPlugin } from "./PgMutationCreateWithConflictsPlugin";
-import { PgMutationCreatePlugin } from "postgraphile/graphile-build-pg";
+import { PgMutationCreateWithConflictsPlugin } from "errors-as-data-plugin";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -153,14 +147,12 @@ const preset: GraphileConfig.Preset = {
   ],
 
   plugins: [
-    // ConflictTypesPlugin,
     PgMutationCreateWithConflictsPlugin,
     MySmartTagsPlugin,
-    // RegisterUserPlugin,
-    // ConstraintDirectivePlugin,
-    // ConstraintDirectiveTypeDefsPlugin,
+    ConstraintDirectivePlugin,
+    ConstraintDirectiveTypeDefsPlugin,
     // OTELPlugin,
-    // ReasonableLimitsPlugin,
+    ReasonableLimitsPlugin,
     ExportGqlSchemaPlugin,
   ],
   disablePlugins: ["PgMutationCreatePlugin", "PgMutationUpdateDeletePlugin"],

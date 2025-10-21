@@ -3,6 +3,9 @@ schema {
   mutation: Mutation
 }
 
+"""A directive to specify constraints on input fields."""
+directive @constraint(minLength: Int, maxLength: Int, max: Int, min: Int, exclusiveMin: Int, exclusiveMax: Int, pattern: String, startsWith: String, endsWith: String, equals: String, oneOf: [String]) on INPUT_FIELD_DEFINITION
+
 """The root query type which gives access points into the data universe."""
 type Query implements Node {
   """
@@ -56,7 +59,7 @@ type Query implements Node {
   """Reads and enables pagination through a set of `Book`."""
   books(
     """Only read the first `n` values of the set."""
-    first: Int
+    first: Int = 10
     """Only read the last `n` values of the set."""
     last: Int
     """
@@ -78,7 +81,7 @@ type Query implements Node {
   """Reads and enables pagination through a set of `Author`."""
   authors(
     """Only read the first `n` values of the set."""
-    first: Int
+    first: Int = 10
     """Only read the last `n` values of the set."""
     last: Int
     """
@@ -100,7 +103,7 @@ type Query implements Node {
   """Reads and enables pagination through a set of `User`."""
   users(
     """Only read the first `n` values of the set."""
-    first: Int
+    first: Int = 10
     """Only read the last `n` values of the set."""
     last: Int
     """
@@ -170,7 +173,7 @@ type Author implements Node {
   """Reads and enables pagination through a set of `Book`."""
   booksByBookAuthorAuthorIdAndBookIsbn(
     """Only read the first `n` values of the set."""
-    first: Int
+    first: Int = 10
     """Only read the last `n` values of the set."""
     last: Int
     """
@@ -231,7 +234,7 @@ type Book implements Node {
   """Reads and enables pagination through a set of `Author`."""
   authors(
     """Only read the first `n` values of the set."""
-    first: Int
+    first: Int = 10
     """Only read the last `n` values of the set."""
     last: Int
     """
@@ -555,11 +558,11 @@ input CreateBookInput {
 """An input for mutations affecting `Book`"""
 input BookInput {
   """The ISBN of the book. Must be a 10 or 13 digit ISBN."""
-  isbn: String!
+  isbn: String! @constraint(maxLength: 13, minLength: 1)
   """
   The title of the book. Cannot be empty and must be less than 1000 characters.
   """
-  title: String!
+  title: String! @constraint(minLength: 1, maxLength: 999)
 }
 
 """The output of our create `Author` mutation."""
@@ -601,9 +604,9 @@ input AuthorInput {
   """
   The name of the author. Cannot be empty and must be less than 1000 characters.
   """
-  name: String!
+  name: String! @constraint(minLength: 1, maxLength: 999)
   """A brief biography of the author. Must be less than 10000 characters."""
-  bio: String
+  bio: String @constraint(maxLength: 9999)
 }
 
 """The output of our create `User` mutation."""
@@ -657,7 +660,7 @@ input UserInput {
   """
   The email address of the user. Must be a valid email address and cannot be empty.
   """
-  email: Email!
+  email: Email! @constraint(pattern: "^.+@.+\\..+$", minLength: 1, maxLength: 99)
   """A brief biography of the user."""
   bio: String
   """The username of the user. Cannot be empty and must be unique."""

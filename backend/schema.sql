@@ -101,6 +101,8 @@ CREATE TABLE books (
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE books ADD CONSTRAINT isbn_max_length_ck CHECK (length(isbn) <= 13);
+
 COMMENT ON TABLE books IS 'A single edition of a book';
 COMMENT ON COLUMN books.title IS 'The title of the book. Cannot be empty and must be less than 1000 characters.';
 COMMENT ON COLUMN books.isbn IS 'The ISBN of the book. Must be a 10 or 13 digit ISBN.';

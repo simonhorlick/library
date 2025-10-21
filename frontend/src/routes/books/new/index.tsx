@@ -39,9 +39,13 @@ export const useFormLoader = routeLoader$<InitialValues<BookForm>>(() => {
   };
 });
 
+function assertNever(value: never): never {
+  throw new Error(`Unhandled case: ${value}`);
+}
+
 export default component$(() => {
   const user = useUser();
-  const [bookForm, { Form, Field, FieldArray }] = useForm<BookForm>({
+  const [bookForm, { Form, Field }] = useForm<BookForm>({
     loader: useFormLoader(),
     validate: valiForm$(BookInputSchema()),
   });
@@ -53,39 +57,42 @@ export default component$(() => {
     errorMessage.value = "";
   });
 
-  function unreachable(): never {
-    throw new Error("Unreachable code executed");
-  }
-
   return (
     <>
       <Form
-        onSubmit$={async (values) => {
+        onSubmit$={async (values): Promise<void> => {
           errorMessage.value = "";
 
-          const result = await execute(
-            {
-              authorization: `Bearer ${user.value.token}`,
-            },
-            undefined,
-            createBookMutation,
-            {
-              book: values,
-            }
-          );
+          try {
+            const result = await execute(
+              {
+                authorization: `Bearer ${user.value.token}`,
+              },
+              undefined,
+              createBookMutation,
+              {
+                book: values,
+              }
+            );
 
-          switch (result.createBook?.result?.__typename) {
-            case "Book":
-              console.log("Book created:", result);
-              return;
-            case "BookIsbnConflict":
-              errorMessage.value = "A book with this ISBN already exists.";
-              showErrorModal.value = true;
-              return;
-            default:
-              throw new Error("Unexpected response from server");
-            // FIXME: rollup doesn't like this
-            // return unreachable();
+            const resultType = result.createBook!.result!.__typename;
+            switch (resultType) {
+              case "Book":
+                console.log("Book created:", result);
+                return;
+              case "BookIsbnConflict":
+                errorMessage.value = "A book with this ISBN already exists.";
+                showErrorModal.value = true;
+                return;
+              default:
+                // Generate a build failure if there is a new conflict type on
+                // the backend.
+                const _exhaustiveCheck: never = resultType;
+                return assertNever(_exhaustiveCheck);
+            }
+          } catch (e) {
+            errorMessage.value = `Error creating book: ${(e as Error).message}`;
+            showErrorModal.value = true;
           }
         }}
       >
