@@ -22,7 +22,7 @@
     "@haathie/postgraphile-reasonable-limits": "^0.1.1",
     "@opentelemetry/auto-instrumentations-node": "^0.64.6",
     "@pgsql/traverse": "^17.1.0",
-    "check-constraints": "^1.0.0",
+    "check-constraints": "^1.1.1",
     "dotenv": "^17.2.3",
     "errors-as-data-plugin": "^1.0.0",
     "fastify": "^5.6.1",
