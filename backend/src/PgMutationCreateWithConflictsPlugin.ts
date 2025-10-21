@@ -7,12 +7,19 @@ import type {
   GrafastResultsList,
   FieldArgs,
   ObjectStep,
+  Step,
 } from "grafast";
 import { assertExecutableStep, isPromiseLike } from "grafast";
 import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 import { gatherConfig } from "graphile-build";
 import { DatabaseError } from "pg";
+
+type StepType = {
+  row: any;
+  conflict: { message: string; constraint: string };
+  insert: any;
+};
 
 function tagToString(
   str: undefined | null | boolean | string | (string | boolean)[]
@@ -386,7 +393,7 @@ const registerResultUnionType = (
       // in the error.
       planType: EXPORTABLE(
         (get, lambda, list, tableTypeName, constraintToTypeName) =>
-          function planType($specifier) {
+          function planType($specifier: Step<StepType>) {
             const $row = get($specifier, "row");
             const $conflict = get($specifier, "conflict");
             const $insert = get($specifier, "insert");
@@ -398,22 +405,22 @@ const registerResultUnionType = (
             // conflict type. Otherwise, return the table type for successful inserts.
             const $__typename = lambda(
               list([$conflictMessage, $constraintName, $row]),
-              ([conflictMessage, constraintName]) => {
-                if (conflictMessage != null && constraintName != null) {
+              ([conflictMessage, constraintName, row]) => {
+                if (constraintName != null) {
                   // Look up the constraint-specific type name.
                   const conflictTypeName =
                     constraintToTypeName.get(constraintName);
-                  if (conflictTypeName) {
-                    return conflictTypeName;
+                  if (!conflictTypeName) {
+                    throw new Error(
+                      `Unknown constraint '${constraintName}' for table '${tableTypeName}'`
+                    );
                   }
-                  // Fallback: if we don't recognize the constraint, we still have
-                  // a conflict but can't determine the specific type. This shouldn't
-                  // happen in practice if our constraint enumeration is complete.
-                  console.warn(
-                    `Unknown constraint '${constraintName}' for table '${tableTypeName}'`
-                  );
+
+                  return conflictTypeName;
+                } else {
+                  // Success type.
+                  return tableTypeName;
                 }
-                return tableTypeName;
               },
               true
             );
