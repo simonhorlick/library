@@ -24,7 +24,7 @@
     "@pgsql/traverse": "^17.1.0",
     "check-constraints": "^1.1.1",
     "dotenv": "^17.2.3",
-    "errors-as-data-plugin": "^1.0.0",
+    "errors-as-data-plugin": "^1.0.1",
     "fastify": "^5.6.1",
     "graphql": "^16.11.0",
     "graphql-constraint-directive": "^6.0.0",

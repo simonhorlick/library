@@ -11,7 +11,7 @@ import {
   ConstraintDirectivePlugin,
   ConstraintDirectiveTypeDefsPlugin,
 } from "check-constraints";
-import { PgMutationCreateWithConflictsPlugin } from "errors-as-data-plugin";
+import { ErrorsAsDataPlugin } from "errors-as-data-plugin";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -147,7 +147,7 @@ const preset: GraphileConfig.Preset = {
   ],
 
   plugins: [
-    PgMutationCreateWithConflictsPlugin,
+    ErrorsAsDataPlugin,
     MySmartTagsPlugin,
     ConstraintDirectivePlugin,
     ConstraintDirectiveTypeDefsPlugin,
@@ -155,7 +155,10 @@ const preset: GraphileConfig.Preset = {
     ReasonableLimitsPlugin,
     ExportGqlSchemaPlugin,
   ],
-  disablePlugins: ["PgMutationCreatePlugin", "PgMutationUpdateDeletePlugin"],
+  disablePlugins: [
+    // Handled by ErrorsAsDataPlugin
+    "PgMutationCreatePlugin",
+  ],
 
   pgServices: [
     makePgService({
