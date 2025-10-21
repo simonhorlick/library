@@ -12,6 +12,7 @@ import { assertExecutableStep, isPromiseLike } from "grafast";
 import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 import { gatherConfig } from "graphile-build";
+import { DatabaseError } from "pg";
 
 function tagToString(
   str: undefined | null | boolean | string | (string | boolean)[]
@@ -142,61 +143,34 @@ const isInsertable = (
   return build.behavior.pgResourceMatches(resource, "resource:insert") === true;
 };
 
+// Check if this is a PostgreSQL constraint violation error.
+// PostgreSQL constraint errors have codes starting with "23":
+// - 23000: integrity_constraint_violation
+// - 23001: restrict_violation
+// - 23502: not_null_violation
+// - 23503: foreign_key_violation
+// - 23505: unique_violation
+// - 23514: check_violation
+const isPostgresConstraintErrorCode = (code: string | undefined): boolean =>
+  !!code && code.startsWith("23");
+
 // analyzeInsertError inspects an error to determine if it's a database
 // constraint violation (PostgreSQL error codes starting with "23").
-// If it is, the error is converted to a structured conflict object with
-// message, code, constraint, and detail fields. If it's not a constraint
-// error, returns null to indicate the error should be handled normally.
+// If it's not a constraint error, returns null to indicate the error should be
+// handled normally.
 const makeAnalyzeInsertError = (tableTypeName: string) =>
   EXPORTABLE(
     (tableTypeName) =>
-      function analyze(value: any) {
-        let error: unknown = value;
-
-        // Unwrap the error if it's wrapped in a flags/value structure
-        // (which can happen with trapped errors).
+      function analyze(error: any) {
         if (
-          error &&
-          typeof error === "object" &&
-          "flags" in error &&
-          "value" in error
+          error instanceof DatabaseError &&
+          isPostgresConstraintErrorCode(error.code)
         ) {
-          error = (error as any).value;
-        }
-
-        // Check if this is a PostgreSQL constraint violation error.
-        // PostgreSQL constraint errors have codes starting with "23":
-        // - 23000: integrity_constraint_violation
-        // - 23001: restrict_violation
-        // - 23502: not_null_violation
-        // - 23503: foreign_key_violation
-        // - 23505: unique_violation
-        // - 23514: check_violation
-        if (error && typeof error === "object") {
-          const code = (error as any).code;
-          if (typeof code === "string" && code.startsWith("23")) {
-            // Extract error details to provide meaningful feedback to clients.
-            // Prefer the detail field for the message as it typically contains
-            // more specific information about what caused the constraint violation.
-            const message =
-              typeof (error as any).detail === "string"
-                ? (error as any).detail
-                : typeof (error as any).message === "string"
-                ? (error as any).message
-                : `Insert into '${tableTypeName}' violated a database constraint`;
-            return {
-              message,
-              code,
-              constraint:
-                (error as any).constraint != null
-                  ? String((error as any).constraint)
-                  : null,
-              detail:
-                typeof (error as any).detail === "string"
-                  ? (error as any).detail
-                  : null,
-            };
-          }
+          return {
+            message: error.detail,
+            // The constraint name is used to identify which type to return in the union.
+            constraint: error.constraint,
+          };
         }
 
         // Not a constraint error, return null to indicate this error should
@@ -924,9 +898,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                           // Build the conflict object with error details extracted from the database error.
                           const $conflict = object({
                             message: get($errorDetails, "message"),
-                            code: get($errorDetails, "code"),
                             constraint: get($errorDetails, "constraint"),
-                            detail: get($errorDetails, "detail"),
                           });
 
                           // Build the result object containing:
