@@ -171,7 +171,8 @@ const makeAnalyzeInsertError = (tableTypeName: string) =>
       function analyze(error: any) {
         if (
           error instanceof DatabaseError &&
-          isPostgresConstraintErrorCode(error.code)
+          isPostgresConstraintErrorCode(error.code) &&
+          error.code !== "23514" // Exclude CHECK violations
         ) {
           return {
             message: error.detail,
@@ -786,7 +787,7 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
         const {
           inflection,
           graphql: { GraphQLNonNull },
-          grafast: { object, trap, TRAP_ERROR, lambda, get },
+          grafast: { object, trap, TRAP_ERROR, lambda, get, list },
         } = build;
         const {
           scope: { isRootMutation },
@@ -888,24 +889,68 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                             valueForError: "PASS_THROUGH",
                           });
 
-                          // Analyze the result to see if it's a constraint error.
-                          // Returns structured conflict details or null.
-                          const $errorDetails = lambda(
+                          // Analyze the result to see if it's a constraint error and re-throw
+                          // if it's not a handleable constraint violation.
+                          // This lambda:
+                          // 1. Calls analyzeInsertError to check if it's a handleable constraint
+                          // 2. If it returns error details, returns { data: inspection, error: errorDetails }
+                          // 3. If it returns null and inspection is an error, re-throws the error
+                          // 4. Otherwise returns { data: inspection, error: null }
+                          const $analyzed = lambda(
                             $inspection,
-                            analyzeInsertError,
+                            (inspection) => {
+                              const errorDetails = analyzeInsertError(inspection);
+                              
+                              // If we have error details, the error was analyzed successfully
+                              // and will be handled as a union type.
+                              if (errorDetails !== null) {
+                                return { data: inspection, error: errorDetails };
+                              }
+                              
+                              // If errorDetails is null but inspection is an error, re-throw it.
+                              // This covers CHECK constraints, NOT NULL, etc.
+                              if (inspection instanceof Error) {
+                                throw inspection;
+                              }
+                              
+                              // Otherwise, this was a successful insert.
+                              return { data: inspection, error: null };
+                            },
                             true
                           );
 
-                          // Trap the insert again to get either the inserted row or NULL on error.
+                          // Extract the data portion (either the row or the error object)
+                          const $dataOrError = lambda(
+                            $analyzed,
+                            (analyzed) => analyzed.data,
+                            true
+                          );
+
+                          // Extract the error details
+                          const $errorDetails = lambda(
+                            $analyzed,
+                            (analyzed) => analyzed.error,
+                            true
+                          );
+
+                          // Trap again to get either the inserted row or NULL on error.
                           // This provides a fallback value for the union type discrimination.
-                          const $row = trap($insert, TRAP_ERROR, {
+                          const $row = trap($dataOrError, TRAP_ERROR, {
                             valueForError: "NULL",
                           });
 
                           // Build the conflict object with error details extracted from the database error.
                           const $conflict = object({
-                            message: get($errorDetails, "message"),
-                            constraint: get($errorDetails, "constraint"),
+                            message: lambda(
+                              $errorDetails,
+                              (details) => details?.message ?? null,
+                              true
+                            ),
+                            constraint: lambda(
+                              $errorDetails,
+                              (details) => details?.constraint ?? null,
+                              true
+                            ),
                           });
 
                           // Build the result object containing:

@@ -130,6 +130,7 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
   afterAll(async () => {
     await pool.end();
   });
+
   it("should return the correct response for conflict cases", async () => {
     const { app, url } = await createTestServer();
 
@@ -140,6 +141,20 @@ describe("PgMutationCreateWithConflictsPlugin", () => {
     expect(response.body.data.createBook.result.__typename).toEqual(
       "BookIsbnConflict"
     );
+
+    await app.close();
+  });
+
+  it("should return the correct response when a CHECK constraint is violated", async () => {
+    const { app, url } = await createTestServer();
+
+    const mutation = createBookMutation("", "");
+    const response = await executeMutation(url, mutation);
+
+    expect(response.body.errors[0].message).toEqual(
+      'new row for relation "books" violates check constraint "isbn_not_empty_ck"'
+    );
+    expect(response.body.data.createBook).toBeNull();
 
     await app.close();
   });
