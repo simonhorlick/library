@@ -15,6 +15,49 @@ import { EXPORTABLE } from "graphile-build";
 import { gatherConfig } from "graphile-build";
 import { DatabaseError } from "pg";
 
+/**
+ * PgMutationCreateWithConflictsPlugin
+ *
+ * This plugin provides enhanced create mutations that handle database constraint
+ * violations gracefully using GraphQL union types instead of throwing errors.
+ *
+ * SCOPE: This plugin ONLY handles unique constraint and primary key violations.
+ *
+ * When a unique constraint or primary key violation occurs, instead of returning
+ * a GraphQL error, the mutation returns a union type that allows the client to
+ * discriminate between success and specific conflict types:
+ *
+ * Example:
+ *   mutation {
+ *     createBook(input: { book: { isbn: "123", title: "Foo" } }) {
+ *       result {
+ *         __typename
+ *         ... on Book { isbn title }
+ *         ... on BookIsbnConflict { message }
+ *       }
+ *     }
+ *   }
+ *
+ * RATIONALE FOR SCOPE LIMITATION:
+ *
+ * Unique/Primary Key violations are handled as union types because:
+ * - They represent conflicts that clients might reasonably handle (e.g., "username
+ *   already taken, please choose another")
+ * - Clients can take corrective action by retrying with different values
+ * - The violation is predictable and part of normal application flow
+ *
+ * Other database errors (CHECK constraints, NOT NULL, foreign key violations, etc.)
+ * are NOT handled as union types because:
+ * - They indicate invalid data or programming errors
+ * - They should be caught during validation before reaching the database
+ * - Standard GraphQL errors with detailed messages are more appropriate
+ * - They're exceptional cases, not normal application flow
+ *
+ * For example, a CHECK constraint violation indicates the client sent fundamentally
+ * invalid data (e.g., empty string when non-empty is required). This is better
+ * represented as a standard error rather than a union type conflict.
+ */
+
 type StepType = {
   row: any;
   conflict: { message: string; constraint: string };
@@ -150,39 +193,60 @@ const isInsertable = (
   return build.behavior.pgResourceMatches(resource, "resource:insert") === true;
 };
 
-// Check if this is a PostgreSQL constraint violation error.
-// PostgreSQL constraint errors have codes starting with "23":
+// Type for the result of analyzing a database error.
+// Null means the error should propagate as a standard GraphQL error.
+// Non-null means the error should be handled as a union type conflict.
+type ConflictDetails = {
+  message: string | null;
+  constraint: string | null;
+} | null;
+
+// Determines whether a database error should be handled as a union type conflict
+// or allowed to propagate as a standard GraphQL error.
+//
+// Returns:
+//   - ConflictDetails object: Error should be handled as a union type (e.g., BookIsbnConflict)
+//   - null: Error should propagate normally to GraphQL's error array
+//
+// This plugin ONLY handles unique constraint and primary key violations as union types.
+// Other database errors (CHECK constraints, NOT NULL, foreign key violations, etc.)
+// are intentionally excluded and will appear as standard GraphQL errors.
+//
+// PostgreSQL error codes (for reference):
 // - 23000: integrity_constraint_violation
 // - 23001: restrict_violation
 // - 23502: not_null_violation
 // - 23503: foreign_key_violation
-// - 23505: unique_violation
+// - 23505: unique_violation (THIS IS WHAT WE HANDLE)
 // - 23514: check_violation
-const isPostgresConstraintErrorCode = (code: string | undefined): boolean =>
-  !!code && code.startsWith("23");
-
-// analyzeInsertError inspects an error to determine if it's a database
-// constraint violation (PostgreSQL error codes starting with "23").
-// If it's not a constraint error, returns null to indicate the error should be
-// handled normally.
+//
+// Rationale: Union type conflict handling is designed for cases where the client
+// might reasonably retry with different data (e.g., choosing a different username).
+// CHECK constraints and other validation errors indicate invalid data that needs
+// to be corrected differently, so they're better represented as standard errors.
 const makeAnalyzeInsertError = (tableTypeName: string) =>
   EXPORTABLE(
     (tableTypeName) =>
-      function analyze(error: any) {
+      function analyzeInsertErrorForConflictHandling(
+        error: any
+      ): ConflictDetails {
+        // Only handle unique and primary key constraint violations as union types.
+        // Error code 23505 is unique_violation - the only one we convert into
+        // union type conflicts.
         if (
           error instanceof DatabaseError &&
-          isPostgresConstraintErrorCode(error.code) &&
-          error.code !== "23514" // Exclude CHECK violations
+          error.code === "23505" // unique_violation only
         ) {
           return {
-            message: error.detail,
+            message: error.detail ?? null,
             // The constraint name is used to identify which type to return in the union.
-            constraint: error.constraint,
+            constraint: error.constraint ?? null,
           };
         }
 
-        // Not a constraint error, return null to indicate this error should
-        // be handled through normal error channels.
+        // For all other errors (including CHECK constraints with code 23514),
+        // return null to indicate this error should propagate as a standard
+        // GraphQL error with the original database error message.
         return null;
       },
     [tableTypeName],
@@ -889,31 +953,45 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                             valueForError: "PASS_THROUGH",
                           });
 
-                          // Analyze the result to see if it's a constraint error and re-throw
-                          // if it's not a handleable constraint violation.
-                          // This lambda:
-                          // 1. Calls analyzeInsertError to check if it's a handleable constraint
-                          // 2. If it returns error details, returns { data: inspection, error: errorDetails }
-                          // 3. If it returns null and inspection is an error, re-throws the error
-                          // 4. Otherwise returns { data: inspection, error: null }
+                          // CRITICAL ERROR HANDLING LOGIC:
+                          // This lambda determines which errors should be handled as union types
+                          // and which should propagate as standard GraphQL errors.
+                          //
+                          // Flow:
+                          // 1. Call analyzeInsertErrorForConflictHandling to check if this is a
+                          //    unique/primary key constraint violation
+                          // 2. If YES (errorDetails !== null):
+                          //    - Package the error for union type handling
+                          //    - Result will be returned as BookIsbnConflict, UserEmailConflict, etc.
+                          // 3. If NO (errorDetails === null) AND inspection is an Error:
+                          //    - RE-THROW the error immediately
+                          //    - This ensures CHECK constraints, NOT NULL, etc. appear in
+                          //      GraphQL's errors array with their original database messages
+                          // 4. If NO error at all:
+                          //    - This was a successful insert, package the data normally
                           const $analyzed = lambda(
                             $inspection,
                             (inspection) => {
-                              const errorDetails = analyzeInsertError(inspection);
-                              
-                              // If we have error details, the error was analyzed successfully
-                              // and will be handled as a union type.
+                              const errorDetails =
+                                analyzeInsertError(inspection);
+
+                              // Case 1: Handleable constraint violation (unique/primary key)
+                              // Return both the error and its details for union type processing
                               if (errorDetails !== null) {
-                                return { data: inspection, error: errorDetails };
+                                return {
+                                  data: inspection,
+                                  error: errorDetails,
+                                };
                               }
-                              
-                              // If errorDetails is null but inspection is an error, re-throw it.
-                              // This covers CHECK constraints, NOT NULL, etc.
+
+                              // Case 2: Non-handleable error (CHECK, NOT NULL, foreign key, etc.)
+                              // RE-THROW so it appears as a standard GraphQL error
                               if (inspection instanceof Error) {
                                 throw inspection;
                               }
-                              
-                              // Otherwise, this was a successful insert.
+
+                              // Case 3: Successful insert
+                              // No error to handle
                               return { data: inspection, error: null };
                             },
                             true
