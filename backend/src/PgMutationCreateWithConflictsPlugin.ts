@@ -13,6 +13,15 @@ import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 import { gatherConfig } from "graphile-build";
 
+function tagToString(
+  str: undefined | null | boolean | string | (string | boolean)[]
+): string | undefined {
+  if (!str || (Array.isArray(str) && str.length === 0)) {
+    return undefined;
+  }
+  return Array.isArray(str) ? str.join("\n") : str === true ? " " : str;
+}
+
 // SafePgInsertSingleStep extends PgInsertSingleStep to handle database constraint
 // violations gracefully by converting promise rejections into regular values.
 // This allows constraint errors to be processed as union type results rather than
@@ -539,8 +548,8 @@ const registerPayloadType = (
 //
 // This plugin creates the following GraphQL types for each insertable resource:
 // - Input type: Defines the structure of data to be inserted
-// - Conflict type: Contains details about constraint violations (message, code, constraint, detail)
-// - Result union type: Union of the table type and conflict type
+// - Conflict types: One per constraint, detailing the violation
+// - Result union type: Union of the table type and conflict types
 // - Payload type: Wraps the result union with clientMutationId
 //
 // When an insert succeeds, the mutation returns the created record.
@@ -860,9 +869,9 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
                     },
                     type: payloadType,
                     description: `Creates a single \`${tableTypeName}\`.`,
-                    // deprecationReason: tagToString(
-                    //   resource.extensions?.tags?.deprecated,
-                    // ),
+                    deprecationReason: tagToString(
+                      resource.extensions?.tags?.deprecated
+                    ),
 
                     // The plan function executes during query planning and sets up the
                     // steps needed to handle both successful inserts and constraint violations.
