@@ -583,13 +583,7 @@ type CreateAuthorPayload {
 }
 
 """Outcome of attempting to create a `Author`."""
-union CreateAuthorResult = Author | AuthorIdConflict
-
-"""Failure to create a `Author` due to non-unique id."""
-type AuthorIdConflict {
-  """Human-readable description of the conflict."""
-  message: String
-}
+union CreateAuthorResult = Author
 
 """All input for the create `Author` mutation."""
 input CreateAuthorInput {
@@ -633,7 +627,7 @@ type CreateUserPayload {
 }
 
 """Outcome of attempting to create a `User`."""
-union CreateUserResult = User | UserEmailConflict | UserUsernameConflict | UserIdConflict
+union CreateUserResult = User | UserEmailConflict | UserUsernameConflict
 
 """Failure to create a `User` due to non-unique email."""
 type UserEmailConflict {
@@ -643,12 +637,6 @@ type UserEmailConflict {
 
 """Failure to create a `User` due to non-unique username."""
 type UserUsernameConflict {
-  """Human-readable description of the conflict."""
-  message: String
-}
-
-"""Failure to create a `User` due to non-unique id."""
-type UserIdConflict {
   """Human-readable description of the conflict."""
   message: String
 }

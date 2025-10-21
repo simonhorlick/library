@@ -647,8 +647,13 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
               const attr = pgClass
                 .getAttributes()
                 .find((a) => a.attnum === attnum);
-              return attr?.attname;
+              return attr;
             })
+            // Exclude constraints on GENERATED ALWAYS AS IDENTITY columns, as
+            // they are not user-insertable and won't cause conflicts during
+            // insert.
+            .filter((attr) => attr?.attidentity !== "a")
+            .map((attr) => attr?.attname)
             .filter((name): name is string => name != null);
 
           if (columnNames.length === 0) {
