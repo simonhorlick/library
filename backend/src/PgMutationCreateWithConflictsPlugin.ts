@@ -111,10 +111,6 @@ declare global {
         this: Inflection,
         resource: PgResource<any, any, any, any, any>
       ): string;
-      createConflictType(
-        this: Inflection,
-        resource: PgResource<any, any, any, any, any>
-      ): string;
       // Generate conflict type name for a specific constraint (e.g., "IsbnConflict").
       constraintConflictType(
         this: Inflection,
@@ -585,11 +581,6 @@ export const PgMutationCreateWithConflictsPlugin: GraphileConfig.Plugin = {
       // Generate the result union type name (e.g., "CreateBookResult").
       createResultUnionType(options, resource) {
         return this.upperCamelCase(`${this.createField(resource)}-result`);
-      },
-
-      // Generate the conflict type name (e.g., "CreateBookConflict").
-      createConflictType(options, resource) {
-        return this.upperCamelCase(`${this.createField(resource)}-conflict`);
       },
 
       // Generate constraint-specific conflict type name based on the GraphQL type name
