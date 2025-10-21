@@ -535,9 +535,7 @@ type CreateBookPayload {
 """Outcome of attempting to create a `Book`."""
 union CreateBookResult = Book | BookIsbnConflict
 
-"""
-Conflict details when attempting to create a `Book` that violates the primary key on column (isbn).
-"""
+"""Failure to create a `Book` due to non-unique isbn."""
 type BookIsbnConflict {
   """Human-readable description of the conflict."""
   message: String
@@ -587,9 +585,7 @@ type CreateAuthorPayload {
 """Outcome of attempting to create a `Author`."""
 union CreateAuthorResult = Author | AuthorIdConflict
 
-"""
-Conflict details when attempting to create a `Author` that violates the primary key on column (id).
-"""
+"""Failure to create a `Author` due to non-unique id."""
 type AuthorIdConflict {
   """Human-readable description of the conflict."""
   message: String
@@ -639,25 +635,19 @@ type CreateUserPayload {
 """Outcome of attempting to create a `User`."""
 union CreateUserResult = User | UserEmailConflict | UserUsernameConflict | UserIdConflict
 
-"""
-Conflict details when attempting to create a `User` that violates the unique constraint on column (email).
-"""
+"""Failure to create a `User` due to non-unique email."""
 type UserEmailConflict {
   """Human-readable description of the conflict."""
   message: String
 }
 
-"""
-Conflict details when attempting to create a `User` that violates the unique constraint on column (username).
-"""
+"""Failure to create a `User` due to non-unique username."""
 type UserUsernameConflict {
   """Human-readable description of the conflict."""
   message: String
 }
 
-"""
-Conflict details when attempting to create a `User` that violates the primary key on column (id).
-"""
+"""Failure to create a `User` due to non-unique id."""
 type UserIdConflict {
   """Human-readable description of the conflict."""
   message: String

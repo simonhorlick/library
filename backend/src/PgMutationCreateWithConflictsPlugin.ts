@@ -12,7 +12,6 @@ import { assertExecutableStep, isPromiseLike } from "grafast";
 import type { GraphQLObjectType } from "grafast/graphql";
 import { EXPORTABLE } from "graphile-build";
 import { gatherConfig } from "graphile-build";
-import type { PgConstraint } from "pg-introspection";
 
 // SafePgInsertSingleStep extends PgInsertSingleStep to handle database constraint
 // violations gracefully by converting promise rejections into regular values.
@@ -335,15 +334,13 @@ const registerConstraintConflictTypes = (
 
   for (const constraint of constraints) {
     const conflictTypeName = inflection.constraintConflictType(constraint);
-    const columnList = constraint.columnNames.join(", ");
-    const description =
-      `Conflict details when attempting to create a \`${tableTypeName}\` ` +
-      `that violates the ${
-        constraint.constraintType === "p" ? "primary key" : "unique constraint"
-      } ` +
-      `on column${
-        constraint.columnNames.length > 1 ? "s" : ""
-      } (${columnList}).`;
+    const columnList =
+      constraint.columnNames.length === 1
+        ? constraint.columnNames[0]
+        : `(` + constraint.columnNames.join(", ") + `)`;
+    let description =
+      `Failure to create a \`${tableTypeName}\` due to ` +
+      `non-unique ${columnList}.`;
 
     registerConflictType(
       build,
