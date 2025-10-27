@@ -12,6 +12,7 @@ import {
   ConstraintDirectiveTypeDefsPlugin,
 } from "check-constraints";
 import { ErrorsAsDataPlugin } from "errors-as-data-plugin";
+import { FancyMutationsPlugin } from "@haathie/postgraphile-fancy-mutations";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -50,6 +51,18 @@ pool.on("connect", (client) => {
   client.query("SET statement_timeout TO 3000");
 });
 
+import { pgSmartTags } from "postgraphile/utils";
+import { makeOmitAllByDefaultPlugin } from "./opt-in-plugin";
+
+// const OmitAllByDefaultPlugin = pgSmartTags({
+//   kind: "class",
+//   match: () => true,
+//   tags: {
+//     omit: "all",
+//   },
+//   description: "Omit all mutations by default",
+// });
+
 const MySmartTagsPlugin = jsonPgSmartTags({
   version: 1,
   config: {
@@ -82,16 +95,16 @@ const MySmartTagsPlugin = jsonPgSmartTags({
           // behaviour: "+list",
         },
       },
-      book_authors: {
-        tags: {
-          // omitting read causes problems with many-to-many relationships.
-          // omitting many here prevents the automatic generation of a
-          // book_authors link on books (this is what we want, we want authors
-          // on books).
-          omit: "all,create,update,delete,many",
-          // behaviour: "+list",
-        },
-      },
+      // book_authors: {
+      //   tags: {
+      //     // omitting read causes problems with many-to-many relationships.
+      //     // omitting many here prevents the automatic generation of a
+      //     // book_authors link on books (this is what we want, we want authors
+      //     // on books).
+      //     omit: "all,create,update,delete,many",
+      //     // behaviour: "+list",
+      //   },
+      // },
     },
     attribute: {
       // Timestamp fields are set by the database and should not be editable by
@@ -147,6 +160,7 @@ const preset: GraphileConfig.Preset = {
   ],
 
   plugins: [
+    // makeOmitAllByDefaultPlugin(),
     ErrorsAsDataPlugin,
     MySmartTagsPlugin,
     ConstraintDirectivePlugin,
@@ -154,6 +168,7 @@ const preset: GraphileConfig.Preset = {
     // OTELPlugin,
     ReasonableLimitsPlugin,
     ExportGqlSchemaPlugin,
+    FancyMutationsPlugin,
   ],
   disablePlugins: [
     // Handled by ErrorsAsDataPlugin

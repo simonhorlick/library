@@ -18,6 +18,7 @@
     "@graphile-contrib/pg-simplify-inflector": "^6.1.0",
     "@graphile/simplify-inflection": "^8.0.0-beta.8",
     "@graphql-tools/utils": "^10.9.1",
+    "@haathie/postgraphile-fancy-mutations": "^0.1.1",
     "@haathie/postgraphile-otel": "^0.1.0",
     "@haathie/postgraphile-reasonable-limits": "^0.1.1",
     "@opentelemetry/auto-instrumentations-node": "^0.64.6",

@@ -56,6 +56,28 @@ type Query implements Node {
     """The globally unique `ID` to be used in selecting a single `User`."""
     nodeId: ID!
   ): User
+  """Reads and enables pagination through a set of `BookAuthor`."""
+  bookAuthors(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+    """Only read the last `n` values of the set."""
+    last: Int
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: BookAuthorCondition
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): BookAuthorsConnection
   """Reads and enables pagination through a set of `Book`."""
   books(
     """Only read the first `n` values of the set."""
@@ -192,6 +214,28 @@ type Author implements Node {
     """The method to use when ordering `Book`."""
     orderBy: [BooksOrderBy!] = [PRIMARY_KEY_ASC]
   ): AuthorBooksByBookAuthorAuthorIdAndBookIsbnManyToManyConnection!
+  """Reads and enables pagination through a set of `BookAuthor`."""
+  authoredBookAuthors(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+    """Only read the last `n` values of the set."""
+    last: Int
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: BookAuthorCondition
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): BookAuthorsConnection!
 }
 
 """
@@ -253,6 +297,28 @@ type Book implements Node {
     """The method to use when ordering `Author`."""
     orderBy: [AuthorsOrderBy!] = [PRIMARY_KEY_ASC]
   ): BookAuthorsManyToManyConnection!
+  """Reads and enables pagination through a set of `BookAuthor`."""
+  bookAuthorsByBookIsbn(
+    """Only read the first `n` values of the set."""
+    first: Int = 10
+    """Only read the last `n` values of the set."""
+    last: Int
+    """
+    Skip the first `n` values from our `after` cursor, an alternative to cursor
+    based pagination. May not be used with `last`.
+    """
+    offset: Int
+    """Read all values in the set before (above) this cursor."""
+    before: Cursor
+    """Read all values in the set after (below) this cursor."""
+    after: Cursor
+    """
+    A condition to be used in determining which values should be returned by the collection.
+    """
+    condition: BookAuthorCondition
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!] = [PRIMARY_KEY_ASC]
+  ): BookAuthorsConnection!
 }
 
 """
@@ -325,6 +391,50 @@ enum AuthorsOrderBy {
   CREATED_AT_DESC
   UPDATED_AT_ASC
   UPDATED_AT_DESC
+}
+
+"""A connection to a list of `BookAuthor` values."""
+type BookAuthorsConnection {
+  """A list of `BookAuthor` objects."""
+  nodes: [BookAuthor!]!
+  """
+  A list of edges which contains the `BookAuthor` and cursor to aid in pagination.
+  """
+  edges: [BookAuthorsEdge!]!
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+  """The count of *all* `BookAuthor` you could get from the connection."""
+  totalCount: Int!
+}
+
+"""A `BookAuthor` edge in the connection."""
+type BookAuthorsEdge {
+  """A cursor for use in pagination."""
+  cursor: Cursor
+  """The `BookAuthor` at the end of the edge."""
+  node: BookAuthor!
+}
+
+"""
+A condition to be used against `BookAuthor` object types. All fields are tested
+for equality and combined with a logical ‘and.’
+"""
+input BookAuthorCondition {
+  """Checks for equality with the object’s `bookIsbn` field."""
+  bookIsbn: String
+  """Checks for equality with the object’s `authorId` field."""
+  authorId: BigInt
+}
+
+"""Methods to use when ordering `BookAuthor`."""
+enum BookAuthorsOrderBy {
+  NATURAL
+  PRIMARY_KEY_ASC
+  PRIMARY_KEY_DESC
+  BOOK_ISBN_ASC
+  BOOK_ISBN_DESC
+  AUTHOR_ID_ASC
+  AUTHOR_ID_DESC
 }
 
 """A `Book` edge in the connection, with data from `BookAuthor`."""
@@ -492,6 +602,22 @@ enum UsersOrderBy {
 The root mutation type which contains root level fields which mutate data.
 """
 type Mutation {
+  """
+  Updates a single `BookAuthor` using its globally unique id and a patch.
+  """
+  updateBookAuthorByNodeId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateBookAuthorByNodeIdInput!
+  ): UpdateBookAuthorPayload
+  """Updates a single `BookAuthor` using a unique key and a patch."""
+  updateBookAuthor(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: UpdateBookAuthorInput!
+  ): UpdateBookAuthorPayload
   """Updates a single `Book` using its globally unique id and a patch."""
   updateBookByNodeId(
     """
@@ -548,6 +674,20 @@ type Mutation {
     """
     input: UpdateUserByUsernameInput!
   ): UpdateUserPayload
+  """Deletes a single `BookAuthor` using its globally unique id."""
+  deleteBookAuthorByNodeId(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeleteBookAuthorByNodeIdInput!
+  ): DeleteBookAuthorPayload
+  """Deletes a single `BookAuthor` using a unique key."""
+  deleteBookAuthor(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: DeleteBookAuthorInput!
+  ): DeleteBookAuthorPayload
   """Deletes a single `Book` using its globally unique id."""
   deleteBookByNodeId(
     """
@@ -576,6 +716,13 @@ type Mutation {
     """
     input: DeleteAuthorInput!
   ): DeleteAuthorPayload
+  """Creates a single `BookAuthor`."""
+  createBookAuthor(
+    """
+    The exclusive input argument for this mutation. An object type, make sure to see documentation for this object’s fields.
+    """
+    input: CreateBookAuthorInput!
+  ): CreateBookAuthorPayload
   """Creates a single `Book`."""
   createBook(
     """
@@ -597,6 +744,98 @@ type Mutation {
     """
     input: CreateUserInput!
   ): CreateUserPayload
+  """Delete one or more book_authors items"""
+  deleteBookAuthors(condition: BookAuthorCondition): BookAuthorsBulkMutationPayload
+  """Update one or more book_authors items"""
+  updateBookAuthors(condition: BookAuthorCondition, patch: BookAuthorPatch): BookAuthorsBulkMutationPayload
+  """Create one or more book_authors items"""
+  createBookAuthors(onConflict: OnConflictOptions = Error, items: [BookAuthorsCreateItem!]!): BookAuthorsBulkMutationPayload
+  """Delete one or more books items"""
+  deleteBooks(condition: BookCondition): BooksBulkMutationPayload
+  """Update one or more books items"""
+  updateBooks(condition: BookCondition, patch: BookPatch): BooksBulkMutationPayload
+  """Create one or more books items"""
+  createBooks(onConflict: OnConflictOptions = Error, items: [BooksCreateItem!]!): BooksBulkMutationPayload
+  """Delete one or more authors items"""
+  deleteAuthors(condition: AuthorCondition): AuthorsBulkMutationPayload
+  """Update one or more authors items"""
+  updateAuthors(condition: AuthorCondition, patch: AuthorPatch): AuthorsBulkMutationPayload
+  """Create one or more authors items"""
+  createAuthors(onConflict: OnConflictOptions = Error, items: [AuthorsCreateItem!]!): AuthorsBulkMutationPayload
+  """Delete one or more users items"""
+  deleteUsers(condition: UserCondition): UsersBulkMutationPayload
+  """Update one or more users items"""
+  updateUsers(condition: UserCondition, patch: UserPatch): UsersBulkMutationPayload
+  """Create one or more users items"""
+  createUsers(onConflict: OnConflictOptions = Error, items: [UsersCreateItem!]!): UsersBulkMutationPayload
+}
+
+"""The output of our update `BookAuthor` mutation."""
+type UpdateBookAuthorPayload {
+  """
+  The exact same `clientMutationId` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+  """The `BookAuthor` that was updated by this mutation."""
+  bookAuthor: BookAuthor
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+  """An edge for our `BookAuthor`. May be used by Relay 1."""
+  bookAuthorEdge(
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): BookAuthorsEdge
+  """Reads a single `Author` that is related to this `BookAuthor`."""
+  author: Author
+  """Reads a single `Book` that is related to this `BookAuthor`."""
+  book: Book
+}
+
+"""All input for the `updateBookAuthorByNodeId` mutation."""
+input UpdateBookAuthorByNodeIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  """
+  The globally unique `ID` which will identify a single `BookAuthor` to be updated.
+  """
+  nodeId: ID!
+  """
+  An object where the defined keys will be set on the `BookAuthor` being updated.
+  """
+  patch: BookAuthorPatch!
+}
+
+"""
+Represents an update to a `BookAuthor`. Fields that are set will be updated.
+"""
+input BookAuthorPatch {
+  """The ISBN of the book"""
+  bookIsbn: String
+  """An author of the book"""
+  authorId: BigInt
+}
+
+"""All input for the `updateBookAuthor` mutation."""
+input UpdateBookAuthorInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  """The ISBN of the book"""
+  bookIsbn: String!
+  """An author of the book"""
+  authorId: BigInt!
+  """
+  An object where the defined keys will be set on the `BookAuthor` being updated.
+  """
+  patch: BookAuthorPatch!
 }
 
 """The output of our update `Book` mutation."""
@@ -819,6 +1058,57 @@ input UpdateUserByUsernameInput {
   patch: UserPatch!
 }
 
+"""The output of our delete `BookAuthor` mutation."""
+type DeleteBookAuthorPayload {
+  """
+  The exact same `clientMutationId` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+  """The `BookAuthor` that was deleted by this mutation."""
+  bookAuthor: BookAuthor
+  deletedBookAuthorId: ID
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+  """An edge for our `BookAuthor`. May be used by Relay 1."""
+  bookAuthorEdge(
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): BookAuthorsEdge
+  """Reads a single `Author` that is related to this `BookAuthor`."""
+  author: Author
+  """Reads a single `Book` that is related to this `BookAuthor`."""
+  book: Book
+}
+
+"""All input for the `deleteBookAuthorByNodeId` mutation."""
+input DeleteBookAuthorByNodeIdInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  """
+  The globally unique `ID` which will identify a single `BookAuthor` to be deleted.
+  """
+  nodeId: ID!
+}
+
+"""All input for the `deleteBookAuthor` mutation."""
+input DeleteBookAuthorInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  """The ISBN of the book"""
+  bookIsbn: String!
+  """An author of the book"""
+  authorId: BigInt!
+}
+
 """The output of our delete `Book` mutation."""
 type DeleteBookPayload {
   """
@@ -906,6 +1196,52 @@ input DeleteAuthorInput {
   """
   clientMutationId: String
   id: BigInt!
+}
+
+"""The output of our create `BookAuthor` mutation."""
+type CreateBookAuthorPayload {
+  """
+  The exact same `clientMutationId` that was provided in the mutation input,
+  unchanged and unused. May be used by a client to track mutations.
+  """
+  clientMutationId: String
+  """What happened when attempting to create a `BookAuthor`."""
+  result: CreateBookAuthorResult
+  """
+  Our root query field type. Allows us to run any query from our mutation payload.
+  """
+  query: Query
+  """An edge for our `BookAuthor`. May be used by Relay 1."""
+  bookAuthorEdge(
+    """The method to use when ordering `BookAuthor`."""
+    orderBy: [BookAuthorsOrderBy!]! = [PRIMARY_KEY_ASC]
+  ): BookAuthorsEdge
+  """Reads a single `Author` that is related to this `BookAuthor`."""
+  author: Author
+  """Reads a single `Book` that is related to this `BookAuthor`."""
+  book: Book
+}
+
+"""Outcome of attempting to create a `BookAuthor`."""
+union CreateBookAuthorResult = BookAuthor
+
+"""All input for the create `BookAuthor` mutation."""
+input CreateBookAuthorInput {
+  """
+  An arbitrary string value with no semantic meaning. Will be included in the
+  payload verbatim. May be used to track mutations by the client.
+  """
+  clientMutationId: String
+  """The `BookAuthor` to be created by this mutation."""
+  bookAuthor: BookAuthorInput!
+}
+
+"""An input for mutations affecting `BookAuthor`"""
+input BookAuthorInput {
+  """The ISBN of the book"""
+  bookIsbn: String!
+  """An author of the book"""
+  authorId: BigInt!
 }
 
 """The output of our create `Book` mutation."""
@@ -1058,4 +1394,132 @@ input UserInput {
   bio: String
   """The username of the user. Cannot be empty and must be unique."""
   username: String!
+}
+
+"""Payload for the bulk create operation on book_authors"""
+type BookAuthorsBulkMutationPayload {
+  affected: Int!
+  items: [BookAuthor!]!
+}
+
+"""Options for handling conflicts during create operations"""
+enum OnConflictOptions {
+  """In case of a duplicate key, ignore the create."""
+  DoNothing
+  """In case of a duplicate key, throw an error."""
+  Error
+  Replace
+}
+
+"""Input object for the bulk create operation on book_authors"""
+input BookAuthorsCreateItem {
+  bookIsbn: String
+  authorId: BigInt
+  author: AuthorsByMyAuthorIdCreateItem
+  book: BooksByMyBookIsbnCreateItem
+}
+
+"""
+Input object for the bulk create operation on authors via relation authorsByMyAuthorId
+"""
+input AuthorsByMyAuthorIdCreateItem {
+  id: BigInt
+  name: String!
+  bio: String
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""
+Input object for the bulk create operation on books via relation booksByMyBookIsbn
+"""
+input BooksByMyBookIsbnCreateItem {
+  isbn: String!
+  title: String!
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""Payload for the bulk create operation on books"""
+type BooksBulkMutationPayload {
+  affected: Int!
+  items: [Book!]!
+}
+
+"""Input object for the bulk create operation on books"""
+input BooksCreateItem {
+  isbn: String!
+  title: String!
+  createdAt: Datetime
+  updatedAt: Datetime
+  bookAuthorsByBookIsbn: [BookAuthorsByTheirBookIsbnCreateItem!]
+}
+
+"""
+Input object for the bulk create operation on book_authors via relation bookAuthorsByTheirBookIsbn
+"""
+input BookAuthorsByTheirBookIsbnCreateItem {
+  authorId: BigInt
+  author: BookAuthorsByTheirBookIsbnAuthorsByMyAuthorIdCreateItem
+}
+
+"""
+Input object for the bulk create operation on authors via relation authorsByMyAuthorId
+"""
+input BookAuthorsByTheirBookIsbnAuthorsByMyAuthorIdCreateItem {
+  id: BigInt
+  name: String!
+  bio: String
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""Payload for the bulk create operation on authors"""
+type AuthorsBulkMutationPayload {
+  affected: Int!
+  items: [Author!]!
+}
+
+"""Input object for the bulk create operation on authors"""
+input AuthorsCreateItem {
+  id: BigInt
+  name: String!
+  bio: String
+  createdAt: Datetime
+  updatedAt: Datetime
+  authoredBookAuthors: [BookAuthorsByTheirAuthorIdCreateItem!]
+}
+
+"""
+Input object for the bulk create operation on book_authors via relation bookAuthorsByTheirAuthorId
+"""
+input BookAuthorsByTheirAuthorIdCreateItem {
+  bookIsbn: String
+  book: BookAuthorsByTheirAuthorIdBooksByMyBookIsbnCreateItem
+}
+
+"""
+Input object for the bulk create operation on books via relation booksByMyBookIsbn
+"""
+input BookAuthorsByTheirAuthorIdBooksByMyBookIsbnCreateItem {
+  isbn: String!
+  title: String!
+  createdAt: Datetime
+  updatedAt: Datetime
+}
+
+"""Payload for the bulk create operation on users"""
+type UsersBulkMutationPayload {
+  affected: Int!
+  items: [User!]!
+}
+
+"""Input object for the bulk create operation on users"""
+input UsersCreateItem {
+  id: BigInt
+  email: Email!
+  bio: String
+  username: String!
+  createdAt: Datetime
+  updatedAt: Datetime
 }
