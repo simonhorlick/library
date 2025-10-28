@@ -35,7 +35,7 @@
   "devDependencies": {
     "@0no-co/graphqlsp": "^1.15.0",
     "@builder.io/qwik": "^1.12.1",
-    "@builder.io/qwik-city": "^1.12.1",
+    "@builder.io/qwik-city": "^1.17.0",
     "@graphql-codegen/cli": "^5.0.5",
     "@modular-forms/qwik": "^0.29.1",
     "@types/eslint": "8.56.10",
