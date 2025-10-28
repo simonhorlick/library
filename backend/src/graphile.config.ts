@@ -173,6 +173,8 @@ const preset: GraphileConfig.Preset = {
   disablePlugins: [
     // Handled by ErrorsAsDataPlugin
     "PgMutationCreatePlugin",
+    // Dont add a query field to the Query type.
+    "QueryQueryPlugin",
   ],
 
   pgServices: [
