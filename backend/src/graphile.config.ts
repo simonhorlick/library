@@ -3,7 +3,7 @@ import { PgSimplifyInflectionPreset } from "@graphile/simplify-inflection";
 import { makeV4Preset } from "postgraphile/presets/v4";
 import { makePgService } from "postgraphile/adaptors/pg";
 import { Pool } from "pg";
-import { jsonPgSmartTags } from "postgraphile/utils";
+import { pgSmartTagsFromFile } from "postgraphile/utils";
 import { ReasonableLimitsPlugin } from "@haathie/postgraphile-reasonable-limits";
 import { PgManyToManyPreset } from "@graphile-contrib/pg-many-to-many";
 import { ExportGqlSchemaPlugin } from "./export-schema";
@@ -51,78 +51,6 @@ pool.on("connect", (client) => {
   client.query("SET statement_timeout TO 3000");
 });
 
-import { pgSmartTags } from "postgraphile/utils";
-import { makeOmitAllByDefaultPlugin } from "./opt-in-plugin";
-
-// const OmitAllByDefaultPlugin = pgSmartTags({
-//   kind: "class",
-//   match: () => true,
-//   tags: {
-//     omit: "all",
-//   },
-//   description: "Omit all mutations by default",
-// });
-
-const MySmartTagsPlugin = jsonPgSmartTags({
-  version: 1,
-  config: {
-    class: {
-      /* Tags specify which operations are emitted, but do not define the
-         security model. If there are tables that should be inaccessible then
-         they must be configured correctly in postgres.
-      */
-      books: {
-        tags: {
-          //omit: "create,update,delete",
-          maxRecordsPerPage: "200",
-          defaultRecordsPerPage: "10",
-          // behaviour: "+list",
-        },
-      },
-      authors: {
-        tags: {
-          //omit: "create,update,delete",
-          maxRecordsPerPage: "200",
-          defaultRecordsPerPage: "10",
-          // behaviour: "+list",
-        },
-      },
-      users: {
-        tags: {
-          omit: "delete",
-          maxRecordsPerPage: "200",
-          defaultRecordsPerPage: "10",
-          // behaviour: "+list",
-        },
-      },
-      // book_authors: {
-      //   tags: {
-      //     // omitting read causes problems with many-to-many relationships.
-      //     // omitting many here prevents the automatic generation of a
-      //     // book_authors link on books (this is what we want, we want authors
-      //     // on books).
-      //     omit: "all,create,update,delete,many",
-      //     // behaviour: "+list",
-      //   },
-      // },
-    },
-    attribute: {
-      // Timestamp fields are set by the database and should not be editable by
-      // clients.
-      created_at: { tags: { omit: "create,update" } },
-      updated_at: { tags: { omit: "create,update" } },
-    },
-    constraint: {
-      fk_book_author_id: {
-        tags: {
-          // otherwise the generated field name on books is "authorsByBookAuthorBookIsbnAndAuthorId"
-          manyToManyFieldName: "authors",
-        },
-      },
-    },
-  },
-});
-
 const preset: GraphileConfig.Preset = {
   grafserv: {
     // maskError(error) {
@@ -160,9 +88,8 @@ const preset: GraphileConfig.Preset = {
   ],
 
   plugins: [
-    // makeOmitAllByDefaultPlugin(),
     ErrorsAsDataPlugin,
-    MySmartTagsPlugin,
+    pgSmartTagsFromFile(),
     ConstraintDirectivePlugin,
     ConstraintDirectiveTypeDefsPlugin,
     // OTELPlugin,
