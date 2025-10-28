@@ -58,6 +58,18 @@ COMMENT ON COLUMN users.bio IS 'A brief biography of the user.';
 
 GRANT ALL PRIVILEGES ON public.users TO api_user;
 
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+CREATE FUNCTION has_permission(permission TEXT) RETURNS BOOLEAN
+LANGUAGE sql AS $$
+  SELECT permission = ANY(string_to_array(current_setting('app.token.permissions', true), ','));
+$$;
+
+CREATE POLICY select_user_policy ON public.users FOR SELECT USING (has_permission('read:user'));
+CREATE POLICY insert_user_policy ON public.users FOR INSERT WITH CHECK (has_permission('write:user'));
+CREATE POLICY update_user_policy ON public.users FOR UPDATE USING (has_permission('write:user'));
+CREATE POLICY delete_user_policy ON public.users FOR DELETE USING (has_permission('delete:user'));
+
 ---
 --- Authors
 ---
