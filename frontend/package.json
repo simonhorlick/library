@@ -54,7 +54,7 @@
     "vite-plugin-graphql-codegen": "^3.5.0",
     "vite-tsconfig-paths": "^4.2.1",
     "vitest": "3.0.9",
-    "wrangler": "^4.6.0"
+    "wrangler": "^4.59.1"
   },
   "dependencies": {
     "@microlabs/otel-cf-workers": "^1.0.0-rc.49",
