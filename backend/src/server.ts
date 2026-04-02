@@ -87,5 +87,14 @@ export const createApolloServer = async (port: number) => {
   });
 
   // Start the Fastify server
-  return await app.listen({ port: port });
+  const address = await app.listen({ port: port });
+
+  // Return the address and a close function that gracefully shuts down the
+  // server and its database pool.
+  const close = async () => {
+    await app.close();
+    await pgl.release();
+  };
+
+  return { address, close };
 };
