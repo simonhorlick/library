@@ -54,5 +54,8 @@ export default defineConfig({
     port: 4173,
     stdout: "pipe",
     reuseExistingServer: !process.env.CI,
+    env: {
+      PUBLIC_ORIGIN: "http://localhost:4173",
+    },
   },
 });

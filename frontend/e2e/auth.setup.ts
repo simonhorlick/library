@@ -48,7 +48,7 @@ setup("authenticate", async ({ page, context }) => {
   await page.waitForTimeout(1000);
 
   // Now try to navigate to the books page to verify auth works
-  await page.goto("http://localhost:5173/books", {
+  await page.goto("/books", {
     waitUntil: "domcontentloaded",
     timeout: 10000,
   });
