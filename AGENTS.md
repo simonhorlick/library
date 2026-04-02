@@ -1,23 +1,31 @@
+# Agents
+
 ## Style
 
-### Comments
+### Code style
 
 Thorough code documentation with clear function comments and meaningful inline comments; consistent code spacing to separate logical blocks.
 
-Comments should use full english sentences.
+Comments should use full english sentences, read as prose.
+Comments should almost never need to include bullet points.
 
 Comments in the body of the code are highly encouraged, but they should explain the intention of the code as opposed to just calling out the obvious.
 
-Code should be organised into small functions that have a single responsibility. If a function is trying to do too much, it should be refactored into smaller functions.
+Code should be organised into small functions that have a single responsibility.
+If a function is trying to do too much, it should be refactored into smaller functions.
 
 Prefer `const foo = (a: A) => { ... }` over `function foo(a: A) { ... }` for defining functions.
 
-After each change, create a commit. Commits should be small and focused on a single change. Avoid bundling multiple unrelated changes into a single commit.
+### Workflow
+
+After each change, create a commit.
+Commits should be small and focused on a single change.
+Avoid bundling multiple unrelated changes into a single commit.
 
 For avoidance of doubt:
 ** MAKE MANY SMALL COMMITS **
 
-## Model Git Commit Messages
+### Model Git Commit Messages
 
 Here’s a model Git commit message:
 
@@ -39,6 +47,6 @@ commands like git merge and git revert.
 For short commits that need no explanation, the body can be omitted. For example
 "backend: Refactor db -> database"
 
-## Test driven development
+### Test driven development
 
 Always practice red-green-refactor. Write failing tests. Commit them. Write code to make them pass. Commit that. Refactor. Commit that.

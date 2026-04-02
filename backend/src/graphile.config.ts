@@ -11,7 +11,8 @@ import {
   ConstraintDirectivePlugin,
   ConstraintDirectiveTypeDefsPlugin,
 } from "check-constraints";
-import { PgMutationCreateWithConflictsPlugin } from "errors-as-data-plugin";
+import { ErrorsAsDataPlugin } from "errors-as-data-plugin";
+import { FancyMutationsPlugin } from "@haathie/postgraphile-fancy-mutations";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -50,7 +51,7 @@ pool.on("connect", (client) => {
   client.query("SET statement_timeout TO 3000");
 });
 
-const MySmartTagsPlugin = jsonPgSmartTags({
+const Tags = jsonPgSmartTags({
   version: 1,
   config: {
     class: {
@@ -82,16 +83,16 @@ const MySmartTagsPlugin = jsonPgSmartTags({
           // behaviour: "+list",
         },
       },
-      book_authors: {
-        tags: {
-          // omitting read causes problems with many-to-many relationships.
-          // omitting many here prevents the automatic generation of a
-          // book_authors link on books (this is what we want, we want authors
-          // on books).
-          omit: "all,create,update,delete,many",
-          // behaviour: "+list",
-        },
-      },
+      //book_authors: {
+      //  tags: {
+      //    // omitting read causes problems with many-to-many relationships.
+      //    // omitting many here prevents the automatic generation of a
+      //    // book_authors link on books (this is what we want, we want authors
+      //    // on books).
+      //    omit: "create,update,delete,many",
+      //    // behaviour: "+list",
+      //  },
+      //},
     },
     attribute: {
       // Timestamp fields are set by the database and should not be editable by
@@ -105,6 +106,11 @@ const MySmartTagsPlugin = jsonPgSmartTags({
           // otherwise the generated field name on books is "authorsByBookAuthorBookIsbnAndAuthorId"
           manyToManyFieldName: "authors",
         },
+      },
+    },
+    procedure: {
+      has_permission: {
+        tags: { omit: "execute" },
       },
     },
   },
@@ -147,15 +153,21 @@ const preset: GraphileConfig.Preset = {
   ],
 
   plugins: [
-    PgMutationCreateWithConflictsPlugin,
-    MySmartTagsPlugin,
+    Tags,
+    ErrorsAsDataPlugin,
     ConstraintDirectivePlugin,
     ConstraintDirectiveTypeDefsPlugin,
     // OTELPlugin,
     ReasonableLimitsPlugin,
+    FancyMutationsPlugin,
     ExportGqlSchemaPlugin,
   ],
-  disablePlugins: ["PgMutationCreatePlugin", "PgMutationUpdateDeletePlugin"],
+  disablePlugins: [
+    // Handled by ErrorsAsDataPlugin
+    "PgMutationCreatePlugin",
+    // Dont add a query field to the Query type.
+    "QueryQueryPlugin",
+  ],
 
   pgServices: [
     makePgService({
@@ -169,7 +181,7 @@ const preset: GraphileConfig.Preset = {
 
         // Application-specific settings must be prefixed with a unique string.
         "app.token.sub": req.fastifyv4.request.token?.sub ?? null,
-        "app.token.scope": req.fastifyv4.request.token?.scope ?? null,
+        "app.token.permissions": req.fastifyv4.request.token?.permissions ?? [],
       }),
     }),
   ],

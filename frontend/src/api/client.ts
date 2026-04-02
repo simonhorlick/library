@@ -23,7 +23,7 @@ export async function execute<TResult, TVariables>(
   headers: Record<string, string>,
   controller: AbortController | undefined,
   query: TypedDocumentString<TResult, TVariables>,
-  variables?: TVariables
+  variables?: TVariables,
 ) {
   try {
     const response = await fetch(import.meta.env.PUBLIC_API_ENDPOINT, {
@@ -46,6 +46,8 @@ export async function execute<TResult, TVariables>(
 
     const responseBody = await response.json();
     console.log(JSON.stringify(responseBody));
+
+    // FIXME: GraphQL can return both data and errors together.
 
     if (responseBody.errors) {
       const errors = responseBody.errors as GraphQLFormattedError[];
