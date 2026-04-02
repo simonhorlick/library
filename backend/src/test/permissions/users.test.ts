@@ -14,6 +14,9 @@ describe("users RLS permissions", () => {
       database: "library_test",
       host: process.env.DB_HOST,
       port: Number.parseInt(process.env.DB_PORT || "5432"),
+      user: process.env.DB_SUPERUSER || process.env.PGUSER || undefined,
+      password:
+        process.env.DB_SUPERUSER_PASSWORD || process.env.PGPASSWORD || undefined,
     });
     await adminClient.connect();
 

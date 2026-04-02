@@ -12,14 +12,22 @@ const TEST_DB_NAME = "library_test";
 const JWKS_PORT = 5680;
 const API_PORT = 5679;
 
+// Build connection options for a superuser session. Locally this falls back
+// to peer auth with the current OS user; in CI the PGUSER and PGPASSWORD
+// environment variables (or DB_SUPERUSER / DB_SUPERUSER_PASSWORD) provide
+// explicit credentials.
+const superuserConnectionOptions = () => ({
+  database: "postgres",
+  host: process.env.DB_HOST,
+  port: Number.parseInt(process.env.DB_PORT || "5432"),
+  user: process.env.DB_SUPERUSER || process.env.PGUSER || undefined,
+  password:
+    process.env.DB_SUPERUSER_PASSWORD || process.env.PGPASSWORD || undefined,
+});
+
 const setupDatabase = async () => {
-  // Connect to the default postgres database to create the test database. We
-  // use the current OS user which should have superuser privileges locally.
-  const adminClient = new Client({
-    database: "postgres",
-    host: process.env.DB_HOST,
-    port: Number.parseInt(process.env.DB_PORT || "5432"),
-  });
+  // Connect to the default postgres database to create the test database.
+  const adminClient = new Client(superuserConnectionOptions());
   await adminClient.connect();
 
   // Terminate any existing connections to the test database so the drop
@@ -37,9 +45,8 @@ const setupDatabase = async () => {
   // Connect to the test database and apply the schema. We also ensure the
   // api_user role exists since the schema grants privileges to it.
   const testClient = new Client({
+    ...superuserConnectionOptions(),
     database: TEST_DB_NAME,
-    host: process.env.DB_HOST,
-    port: Number.parseInt(process.env.DB_PORT || "5432"),
   });
   await testClient.connect();
 
@@ -102,11 +109,7 @@ export const setup = async () => {
     jwksServer.close();
 
     // Drop the test database so we don't leave artefacts behind.
-    const adminClient = new Client({
-      database: "postgres",
-      host: process.env.DB_HOST,
-      port: Number.parseInt(process.env.DB_PORT || "5432"),
-    });
+    const adminClient = new Client(superuserConnectionOptions());
     await adminClient.connect();
     await adminClient.query(`
       SELECT pg_terminate_backend(pid)
