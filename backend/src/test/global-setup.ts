@@ -100,7 +100,7 @@ export const setup = async () => {
   process.env.NODE_ENV = "test";
 
   // Dynamic import so the server module reads the env vars we just set.
-  const { createApolloServer } = await import("../server");
+  const { createApolloServer } = await import("../server.js");
   const serverAddress = await createApolloServer(API_PORT);
   console.log(`Test server listening at ${serverAddress}`);
 

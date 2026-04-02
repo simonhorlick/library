@@ -38,7 +38,7 @@ describe("unauthenticated access", () => {
   it("returns 403 when the token is expired", async () => {
     // Create a token that expired an hour ago by importing jose directly.
     const { SignJWT, importJWK } = await import("jose");
-    const { TEST_PRIVATE_JWK } = await import("../keys");
+    const { TEST_PRIVATE_JWK } = await import("../keys.js");
 
     const privateKey = await importJWK(TEST_PRIVATE_JWK, "RS256");
     const expiredToken = await new SignJWT({ permissions: [], sub: "expired" })
