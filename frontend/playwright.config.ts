@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: "line",
 
   use: {
-    baseURL: "http://localhost:4173",
+    baseURL: "http://localhost:5173",
     // trace: 'on-first-retry',
     // screenshot: 'only-on-failure',
 
@@ -51,11 +51,8 @@ export default defineConfig({
 
   webServer: {
     command: "npm run preview",
-    port: 4173,
+    port: 5173,
     stdout: "pipe",
     reuseExistingServer: !process.env.CI,
-    env: {
-      PUBLIC_ORIGIN: "http://localhost:4173",
-    },
   },
 });
