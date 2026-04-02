@@ -5,8 +5,17 @@ export default component$(() => {
   return (
     <>
       <h1>Library</h1>
-      <a href="/auth/login">Sign In</a>
-      <a href="/books">Books</a>
+      <ul>
+        <li>
+          <a href="/auth/login">Sign In</a>
+        </li>
+        <li>
+          <a href="/auth/logout">Sign Out</a>
+        </li>
+        <li>
+          <a href="/books">Books</a>
+        </li>
+      </ul>
     </>
   );
 });
