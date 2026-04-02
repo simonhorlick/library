@@ -1,0 +1,97 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: library
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      AUTH_CLIENT_SECRET: ${{ secrets.AUTH_CLIENT_SECRET }}
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Load environment from .env.ci
+        run: |
+          # Export all variables from .env.ci, skipping comments, blank lines,
+          # and lines with empty values (secrets are provided via GitHub secrets).
+          grep -v '^#' frontend/.env.ci | grep -v '^$' | grep -v '=$' >> "$GITHUB_ENV"
+
+      - name: Set up database
+        run: |
+          psql -h localhost -U postgres -d library -c "CREATE USER api_user WITH PASSWORD 'supersecret';"
+          psql -h localhost -U postgres -d library -c "GRANT CONNECT ON DATABASE library TO api_user;"
+          psql -h localhost -U postgres -d library -f backend/schema.sql
+        env:
+          PGPASSWORD: postgres
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Compile backend
+        working-directory: backend
+        run: npm run compile
+
+      - name: Start backend
+        working-directory: backend
+        run: |
+          node ./dist/src/index.js &
+
+          # Wait for the backend to accept connections.
+          for i in $(seq 1 30); do
+            curl -s -o /dev/null http://localhost:5678/graphql 2>/dev/null && break
+            sleep 1
+          done
+        env:
+          GRAPHILE_ENV: development
+          DB_HOST: localhost
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare test environment
+        run: cp frontend/.env.ci frontend/.env.test
+
+      - name: Run e2e tests
+        working-directory: frontend
+        run: npm run test.e2e
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: frontend/test-results/
+          retention-days: 30
