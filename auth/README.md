@@ -8,6 +8,8 @@ An application will be automatically created
 
 Make sure to add the Allowed Callback URIs under the backend (Test Application) application (http://localhost:5173/auth/callback)
 
+Add http://localhost:5173 to the Allowed Logout URLs.
+
 Change the application type to Regular Web Application.
 
 Under Advanced Settings > Grant Types > Enable Authorization Code grant
