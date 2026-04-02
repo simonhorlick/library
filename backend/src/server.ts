@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { grafserv } from "grafserv/fastify/v4";
 import { postgraphile } from "postgraphile";
-import jose from "jose";
+import * as jose from "jose";
 import * as dotenv from "dotenv";
 import preset from "./graphile.config";
 import cors from "@fastify/cors";

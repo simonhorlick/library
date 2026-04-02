@@ -559,6 +559,7 @@ type User implements Node {
   username: String!
   createdAt: Datetime!
   updatedAt: Datetime!
+  phoneNumber: String
 }
 
 scalar Email
@@ -645,6 +646,8 @@ input UserCondition {
   createdAt: Datetime
   """Checks for equality with the object’s `updatedAt` field."""
   updatedAt: Datetime
+  """Checks for equality with the object’s `phoneNumber` field."""
+  phoneNumber: String
 }
 
 """Methods to use when ordering `User`."""
@@ -664,6 +667,8 @@ enum UsersOrderBy {
   CREATED_AT_DESC
   UPDATED_AT_ASC
   UPDATED_AT_DESC
+  PHONE_NUMBER_ASC
+  PHONE_NUMBER_DESC
 }
 
 """
@@ -1073,11 +1078,12 @@ input UserPatch {
   """
   The email address of the user. Must be a valid email address and cannot be empty.
   """
-  email: Email @constraint(pattern: "^.+@.+\\..+$", minLength: 1, maxLength: 99)
+  email: Email @constraint(maxLength: 254, minLength: 5)
   """A brief biography of the user."""
   bio: String
   """The username of the user. Cannot be empty and must be unique."""
   username: String
+  phoneNumber: String
 }
 
 """All input for the `updateUser` mutation."""
@@ -1457,11 +1463,12 @@ input UserInput {
   """
   The email address of the user. Must be a valid email address and cannot be empty.
   """
-  email: Email! @constraint(pattern: "^.+@.+\\..+$", minLength: 1, maxLength: 99)
+  email: Email! @constraint(maxLength: 254, minLength: 5)
   """A brief biography of the user."""
   bio: String
   """The username of the user. Cannot be empty and must be unique."""
   username: String!
+  phoneNumber: String
 }
 
 """Payload for the bulk create operation on book_authors"""
@@ -1590,4 +1597,5 @@ input UsersCreateItem {
   username: String!
   createdAt: Datetime
   updatedAt: Datetime
+  phoneNumber: String
 }

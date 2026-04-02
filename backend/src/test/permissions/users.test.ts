@@ -78,7 +78,10 @@ describe("users RLS permissions", () => {
     expect(hasError || result === null).toBe(true);
   });
 
-  it("allows insert with write:user but cannot read without read:user", async () => {
+  it("blocks insert when the token only has write:user but not read:user", async () => {
+    // PostgreSQL RLS enforces the SELECT policy when returning rows after an
+    // insert, so write:user alone is insufficient - the insert fails because
+    // the RETURNING clause cannot read the new row.
     const { body: createBody } = await graphqlAuthed(`
       mutation {
         createUser(input: { user: { email: "writeonly@example.com", username: "writeonly" } }) {
@@ -90,27 +93,8 @@ describe("users RLS permissions", () => {
       }
     `, undefined, ["write:user"]);
 
-    // The insert should succeed but reading the result back requires
-    // read:user. PostGraphile may return null for the created user fields
-    // or may return them depending on the RLS check timing.
-    expect(createBody.errors).toBeUndefined();
-
-    // Without read:user the user should not be visible in a subsequent query.
-    const { body: queryBody } = await graphqlAuthed(`
-      query {
-        users { nodes { id email } }
-      }
-    `, undefined, ["write:user"]);
-
-    const found = queryBody.data?.users?.nodes?.find(
-      (u: any) => u.email === "writeonly@example.com"
-    );
-    expect(found).toBeUndefined();
-
-    // Clean up via superuser.
-    await adminClient.query(
-      `DELETE FROM users WHERE email = 'writeonly@example.com'`
-    );
+    expect(createBody.errors).toBeDefined();
+    expect(createBody.errors[0].message).toContain("row-level security");
   });
 
   it("allows full access with both read:user and write:user", async () => {
