@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import { grafserv } from "grafserv/fastify/v4";
 import { postgraphile } from "postgraphile";
-import jose from "jose";
+import * as jose from "jose";
 import * as dotenv from "dotenv";
 import preset from "./graphile.config";
 import cors from "@fastify/cors";
@@ -19,7 +19,7 @@ export const createApolloServer = async (port: number) => {
   });
 
   const JWKS = jose.createRemoteJWKSet(
-    new URL(process.env.PUBLIC_AUTH_JWKS_URL!)
+    new URL(process.env.PUBLIC_AUTH_JWKS_URL!),
   );
 
   // Intercept all incoming requests to validate the token in the Authorization
@@ -50,7 +50,7 @@ export const createApolloServer = async (port: number) => {
 
     // Extract the token from the Authorization header.
     const token = request.headers.authorization.substring(
-      bearerTokenPrefix.length
+      bearerTokenPrefix.length,
     );
 
     try {
