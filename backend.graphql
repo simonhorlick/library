@@ -34,7 +34,50 @@ schema {
 }
 
 """A directive to specify constraints on input fields."""
-directive @constraint(minLength: Int, maxLength: Int, max: Int, min: Int, exclusiveMin: Int, exclusiveMax: Int, pattern: String, startsWith: String, endsWith: String, equals: String, oneOf: [String]) on INPUT_FIELD_DEFINITION
+directive @constraint(
+  """
+  The value of this constraint MUST be a non-negative integer. A string instance is valid against this constraint if its length is greater than, or equal to minLength. The length of a string instance is defined as the number of its characters.
+  """
+  minLength: Int
+  """
+  The value of this constraint MUST be a non-negative integer. A string instance is valid against this constraint if its length is less than, or equal to maxLength. The length of a string instance is defined as the number of its characters.
+  """
+  maxLength: Int
+  """
+  The value of max MUST be a number, representing an inclusive upper limit for a numeric instance. A numeric instance is valid only if the instance is less than or exactly equal to max.
+  """
+  max: Int
+  """
+  The value of min MUST be a number, representing an inclusive lower limit for a numeric instance. A numeric instance is valid only if the instance is greater than or exactly equal to min.
+  """
+  min: Int
+  """
+  The value of exclusiveMin MUST be a number, representing an exclusive upper limit for a numeric instance. A numeric instance is valid only if it has a value strictly greater than (not equal to) exclusiveMin.
+  """
+  exclusiveMin: Int
+  """
+  The value of exclusiveMax MUST be a number, representing an exclusive upper limit for a numeric instance. A numeric instance is valid only if it is strictly less than (not equal to) exclusiveMax.
+  """
+  exclusiveMax: Int
+  """
+  The value of this constraint MUST be a string. This string SHOULD be a valid regular expression, according to the ECMA 262 regular expression dialect. An instance is valid if the regular expression matches the instance successfully. Recall: regular expressions are not implicitly anchored.
+  """
+  pattern: String
+  """
+  The value of this constraint MUST be a string. An instance is valid if it begins with the characters of the constraint's string.
+  """
+  startsWith: String
+  """
+  The value of this constraint MUST be a string. An instance is valid if it ends with the characters of the constraint's string.
+  """
+  endsWith: String
+  """
+  A value is valid only if its value is equal to the value of the constraint.
+  """
+  equals: String
+  """A value is valid if it is equal to one of the values in this array."""
+  oneOf: [String]
+) on INPUT_FIELD_DEFINITION
 
 """The root query type which gives access points into the data universe."""
 type Query implements Node {
@@ -516,6 +559,7 @@ type User implements Node {
   username: String!
   createdAt: Datetime!
   updatedAt: Datetime!
+  phoneNumber: String
 }
 
 scalar Email
@@ -602,6 +646,8 @@ input UserCondition {
   createdAt: Datetime
   """Checks for equality with the object’s `updatedAt` field."""
   updatedAt: Datetime
+  """Checks for equality with the object’s `phoneNumber` field."""
+  phoneNumber: String
 }
 
 """Methods to use when ordering `User`."""
@@ -621,6 +667,8 @@ enum UsersOrderBy {
   CREATED_AT_DESC
   UPDATED_AT_ASC
   UPDATED_AT_DESC
+  PHONE_NUMBER_ASC
+  PHONE_NUMBER_DESC
 }
 
 """
@@ -1030,11 +1078,12 @@ input UserPatch {
   """
   The email address of the user. Must be a valid email address and cannot be empty.
   """
-  email: Email @constraint(pattern: "^.+@.+\\..+$", minLength: 1, maxLength: 99)
+  email: Email @constraint(maxLength: 254, minLength: 5)
   """A brief biography of the user."""
   bio: String
   """The username of the user. Cannot be empty and must be unique."""
   username: String
+  phoneNumber: String
 }
 
 """All input for the `updateUser` mutation."""
@@ -1414,11 +1463,12 @@ input UserInput {
   """
   The email address of the user. Must be a valid email address and cannot be empty.
   """
-  email: Email! @constraint(pattern: "^.+@.+\\..+$", minLength: 1, maxLength: 99)
+  email: Email! @constraint(maxLength: 254, minLength: 5)
   """A brief biography of the user."""
   bio: String
   """The username of the user. Cannot be empty and must be unique."""
   username: String!
+  phoneNumber: String
 }
 
 """Payload for the bulk create operation on book_authors"""
@@ -1547,4 +1597,5 @@ input UsersCreateItem {
   username: String!
   createdAt: Datetime
   updatedAt: Datetime
+  phoneNumber: String
 }
