@@ -1,0 +1,25 @@
+// Static RSA key pair used exclusively for signing test JWTs. These keys have
+// no security value and must never be used outside of tests.
+
+export const TEST_PUBLIC_JWK = {
+  kty: "RSA",
+  n: "3rQsVtNBY0FyBc55brL5qlReoAjwGYDjb3FqhRvey-q9ggxaj4fviidarGF0IuTE7_oEPaXa1zkjAkqtkP6ugu0tYecOAucUtGMWIJ_9ooPgRSYkRCW5bSnDac7GOTRFWsd5jxiSUi7vi21h158X-eu1K__yR59hTFAZVADMwa-olvBUD0THQPqfnhDGAOsVrGsugfzV-TuOUkh6i82n9Rbgj73gC2hSLmjxxgw8gHlxo9gbapGchU9VWatAWJ_tIuampmd1HTW868laXwxJyQD4aIdqStvFCLLOq9Xyb-UzH7bC8e0Lo-jdYb1IaogOeMwjXtynDqD3SBNIWTmsHw",
+  e: "AQAB",
+  kid: "test-key-1",
+  alg: "RS256",
+  use: "sig",
+} as const;
+
+export const TEST_PRIVATE_JWK = {
+  kty: "RSA",
+  n: "3rQsVtNBY0FyBc55brL5qlReoAjwGYDjb3FqhRvey-q9ggxaj4fviidarGF0IuTE7_oEPaXa1zkjAkqtkP6ugu0tYecOAucUtGMWIJ_9ooPgRSYkRCW5bSnDac7GOTRFWsd5jxiSUi7vi21h158X-eu1K__yR59hTFAZVADMwa-olvBUD0THQPqfnhDGAOsVrGsugfzV-TuOUkh6i82n9Rbgj73gC2hSLmjxxgw8gHlxo9gbapGchU9VWatAWJ_tIuampmd1HTW868laXwxJyQD4aIdqStvFCLLOq9Xyb-UzH7bC8e0Lo-jdYb1IaogOeMwjXtynDqD3SBNIWTmsHw",
+  e: "AQAB",
+  d: "HEqMNW156YeHWih8Ma1n3RUBvlfUVJEUk3Q3gXhkachE0dAK8x_kNMtCEBMDQ2mHgSrkPgajUeMOyPw-p2RLPBOwR7coBwNfFHlf9r4MZQhWxcIOKmAWecEr83WSpfK3esxLa3vGHs2anb5EBzXNQHEKn2_Q0ftzy1ODnDHL0TDoUSzWzU0N0PMkv32WDvAc8_0tJ1AJyCrvABwfmaE-yP_nr11YZY05SAUr9gwBsANfXm3-5ZCFdOf1sdWV8UJ8h9zDz7P75_UC7Sgyfizg7MJSQtYt5QWe3-mMrQuxl0gfyoOZswPkpc5stNcxu3zdh5DNvAL-RQGY78nC9j0xUQ",
+  p: "8SBbcovX_AOPUEUK7NPMhgXf_dYWs7u9OPRtErqGCGF8TI965rP6nRH9eMrHKDsqaVSBLZuPNQ73kIgsVKck-K-d2yVa0H3f7rnZeg9TzRdjCdynCRmlPn0x1P1ixOkvfO8BuW206oqRwl6nokyyq14V9MIIsQ9GbsM2ZFdEE5E",
+  q: "7HDnUcX4VC4XkxlNA-K_dUe9qPoWaBhrR4NOL0sQyQiwlrLZroRpFbtgshdEiKuMBss_FqgdUvxZYUpccVFA-AmHn_7RliBIgpf9I8dGvmpVWTGxGJpvbfm9r7JX-eo41pCKGuqz164KK96igeOD5ulhUj2rIhN3r1u-116tjK8",
+  dp: "Eoz8vBlKKpdThUdqicHZsE3vZ6X65SUCb8lOQuyatzZYy8MWH32lQERMDej73Xp_zs6ziYC4Scq2_SWc035wd7l7GYsMK5Ijkkg2FQ_s0JCGDBIvv6F7dw1Gsi40VRXjk2cH6O4pxwmWITALEY95B3obklMDPCwCrS7TlnCoSiE",
+  dq: "FkrS1Hfo4O7zlA_nnf0r9f_Mlvj1Ud0ziCuOHJFkRMAH_j1gnr6nNcBT7paZBJW__wf8q8Mv-JoIR07-hkSV7ozfd6tL0W67x2xTFqN8PQnDgERaISq2ZNUOGFmlR8_YigpYqw8D48rp9JbqFXsA_a11Wo6r6uuQ9jydMqsfi8s",
+  qi: "MSDdQiUvkCoNa9ssmZNEOyb3FAKrUuLIZ1QnDGBzj8VoxK7sqXS0sfbakrGIDIt86PIqJ41e6eMk8jawiFyOOvXxqZ-1DTKBkJawRi308rVyPRb-exfZdIMARdwONgPn8TI9fu2KQZXVtPynqPwSyOdjjyfQotdckuSvG_1mYog",
+  kid: "test-key-1",
+  alg: "RS256",
+} as const;
