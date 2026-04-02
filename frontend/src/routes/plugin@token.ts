@@ -9,7 +9,7 @@ import { JWKS } from "~/api/keys";
 // redirect to the login page.
 export const onRequest: RequestHandler = async (event) => {
   // Exclude all /auth routes from this middleware.
-  const notAuthenticatedPrefixes = ["/auth"];
+  const notAuthenticatedPrefixes = ["/auth", "/"];
   if (
     notAuthenticatedPrefixes.some((prefix) => event.pathname.startsWith(prefix))
   ) {
@@ -43,6 +43,9 @@ export const onRequest: RequestHandler = async (event) => {
       // a redirect to the login page.
       throw event.redirect(302, "/auth/login");
     }
+  } else {
+    // If there is no token we redirect to the login page
+    throw event.redirect(302, "/auth/login");
   }
 
   await event.next();

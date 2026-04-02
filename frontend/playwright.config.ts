@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 /** See https://playwright.dev/docs/test-configuration. */
 export default defineConfig({
   testDir: "./e2e",
+  globalSetup: "./e2e/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -23,16 +24,29 @@ export default defineConfig({
   timeout: 30000,
 
   projects: [
+    // Setup project - runs first to authenticate
+    {
+      name: "setup",
+      testMatch: /.*\.setup\.ts/,
+    },
     {
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+        // Use the authenticated state for all tests
+        storageState: ".auth/user.json",
+      },
+      dependencies: ["setup"],
+    },
+    // Unauthenticated tests (login flow testing)
+    {
+      name: "chromium-no-auth",
+      testMatch: /.*login\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        // No storageState - starts fresh
       },
     },
-    // {
-    //   name: "webkit",
-    //   use: { ...devices["Desktop Safari"] },
-    // },
   ],
 
   webServer: {

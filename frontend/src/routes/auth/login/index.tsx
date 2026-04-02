@@ -38,7 +38,8 @@ export const onGet = async ({ cookie, redirect, env }: RequestEvent) => {
 
   // Store the code verifier with the user so we can retrieve it later in the
   // callback endpoint.
-  cookie.set("code_verifier", code_verifier, { secure: true });
+  const isHttps = import.meta.env.DEV ? false : true;
+  cookie.set("code_verifier", code_verifier, { secure: isHttps });
 
   throw redirect(302, redirectTo.href);
 };
