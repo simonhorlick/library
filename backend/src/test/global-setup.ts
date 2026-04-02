@@ -101,23 +101,15 @@ export const setup = async () => {
 
   // Dynamic import so the server module reads the env vars we just set.
   const { createApolloServer } = await import("../server.js");
-  const serverAddress = await createApolloServer(API_PORT);
-  console.log(`Test server listening at ${serverAddress}`);
+  const { address, close } = await createApolloServer(API_PORT);
+  console.log(`Test server listening at ${address}`);
 
   // Return the teardown function that vitest calls after all tests complete.
   return async () => {
+    // Shut down the API server and its database pool before dropping the test
+    // database.
+    await close();
     jwksServer.close();
-
-    // Drop the test database so we don't leave artefacts behind.
-    const adminClient = new Client(superuserConnectionOptions());
-    await adminClient.connect();
-    await adminClient.query(`
-      SELECT pg_terminate_backend(pid)
-      FROM pg_stat_activity
-      WHERE datname = '${TEST_DB_NAME}' AND pid <> pg_backend_pid()
-    `);
-    await adminClient.query(`DROP DATABASE IF EXISTS ${TEST_DB_NAME}`);
-    await adminClient.end();
   };
 };
 
