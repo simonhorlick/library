@@ -18,7 +18,19 @@
     "noEmit": true,
     "paths": {
       "~/*": ["./src/*"]
-    }
+    },
+
+    "plugins": [
+      {
+        "name": "@0no-co/graphqlsp",
+        "schemas": [
+          {
+            "name": "backend",
+            "schema": "../backend.graphql"
+          }
+        ]
+      }
+    ]
   },
   "files": ["./.eslintrc.cjs"],
   "include": ["src", "./*.d.ts", "./*.config.ts"]

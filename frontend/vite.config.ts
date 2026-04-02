@@ -60,6 +60,7 @@ export default defineConfig(({ command, mode }): UserConfig => {
       },
     },
     preview: {
+      port: 5173,
       headers: {
         // Do cache the server response in preview (non-adapter production build)
         "Cache-Control": "public, max-age=600",

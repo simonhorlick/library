@@ -4,11 +4,15 @@ import { makeV4Preset } from "postgraphile/presets/v4";
 import { makePgService } from "postgraphile/adaptors/pg";
 import { Pool } from "pg";
 import { jsonPgSmartTags } from "postgraphile/utils";
-import { RegisterUserPlugin } from "./register";
-import { OTELPlugin } from "@haathie/postgraphile-otel";
 import { ReasonableLimitsPlugin } from "@haathie/postgraphile-reasonable-limits";
 import { PgManyToManyPreset } from "@graphile-contrib/pg-many-to-many";
-import { grafserv } from "postgraphile/grafserv/node";
+import { ExportGqlSchemaPlugin } from "./export-schema";
+import {
+  ConstraintDirectivePlugin,
+  ConstraintDirectiveTypeDefsPlugin,
+} from "check-constraints";
+import { ErrorsAsDataPlugin } from "errors-as-data-plugin";
+import { FancyMutationsPlugin } from "@haathie/postgraphile-fancy-mutations";
 
 /*
   Create a user for postgraphile with the following SQL:
@@ -41,8 +45,13 @@ const pool = new Pool({
   host: process.env.DB_HOST,
   port: Number.parseInt(process.env.DB_PORT || "5432"),
 });
+pool.on("connect", (client) => {
+  // Use a per-connection statement timeout, rather than per-request to avoid
+  // a database roundtrip.
+  client.query("SET statement_timeout TO 3000");
+});
 
-const MySmartTagsPlugin = jsonPgSmartTags({
+const Tags = jsonPgSmartTags({
   version: 1,
   config: {
     class: {
@@ -52,7 +61,7 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       */
       books: {
         tags: {
-          omit: "create,update,delete",
+          //omit: "create,update,delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
@@ -60,7 +69,7 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       },
       authors: {
         tags: {
-          omit: "create,update,delete",
+          //omit: "create,update,delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
@@ -68,22 +77,22 @@ const MySmartTagsPlugin = jsonPgSmartTags({
       },
       users: {
         tags: {
-          omit: "create,delete",
+          omit: "delete",
           maxRecordsPerPage: "200",
           defaultRecordsPerPage: "10",
           // behaviour: "+list",
         },
       },
-      book_authors: {
-        tags: {
-          // omitting read causes problems with many-to-many relationships.
-          // omitting many here prevents the automatic generation of a
-          // book_authors link on books (this is what we want, we want authors
-          // on books).
-          omit: "all,create,update,delete,many",
-          // behaviour: "+list",
-        },
-      },
+      //book_authors: {
+      //  tags: {
+      //    // omitting read causes problems with many-to-many relationships.
+      //    // omitting many here prevents the automatic generation of a
+      //    // book_authors link on books (this is what we want, we want authors
+      //    // on books).
+      //    omit: "create,update,delete,many",
+      //    // behaviour: "+list",
+      //  },
+      //},
     },
     attribute: {
       // Timestamp fields are set by the database and should not be editable by
@@ -99,18 +108,28 @@ const MySmartTagsPlugin = jsonPgSmartTags({
         },
       },
     },
+    procedure: {
+      has_permission: {
+        tags: { omit: "execute" },
+      },
+    },
   },
 });
 
-/** @type {GraphileConfig.Preset} */
-const preset = {
+const preset: GraphileConfig.Preset = {
   grafserv: {
+    // maskError(error) {
+    //   console.log(error);
+    //   return error;
+    // },
     dangerouslyAllowAllCORSRequests: true,
   },
   grafast: {
     timeouts: {
-      planning: 100,
-      execution: 1_000,
+      planning:
+        process.env.NODE_ENV === "production" ? 100 : Number.MAX_SAFE_INTEGER,
+      execution:
+        process.env.NODE_ENV === "production" ? 1_000 : Number.MAX_SAFE_INTEGER,
     },
     explain: true, // DO NOT ENABLE IN PRODUCTION!
   },
@@ -130,16 +149,24 @@ const preset = {
       // For development.
       showErrorStack: "json",
       extendedErrors: ["hint", "detail", "errcode"],
-      // Place the generated graphql schema at the project root.
-      exportGqlSchemaPath: "../backend.graphql",
     }),
   ],
 
   plugins: [
-    MySmartTagsPlugin,
-    RegisterUserPlugin,
-    OTELPlugin,
+    Tags,
+    ErrorsAsDataPlugin,
+    ConstraintDirectivePlugin,
+    ConstraintDirectiveTypeDefsPlugin,
+    // OTELPlugin,
     ReasonableLimitsPlugin,
+    FancyMutationsPlugin,
+    ExportGqlSchemaPlugin,
+  ],
+  disablePlugins: [
+    // Handled by ErrorsAsDataPlugin
+    "PgMutationCreatePlugin",
+    // Dont add a query field to the Query type.
+    "QueryQueryPlugin",
   ],
 
   pgServices: [
@@ -150,11 +177,11 @@ const preset = {
         // Reduce the chance of denial of service attacks by setting a
         // statement timeout.
         // Adds another query to each request.
-        statement_timeout: "3000",
+        // statement_timeout: "3000",
 
         // Application-specific settings must be prefixed with a unique string.
         "app.token.sub": req.fastifyv4.request.token?.sub ?? null,
-        "app.token.scope": req.fastifyv4.request.token?.scope ?? null,
+        "app.token.permissions": req.fastifyv4.request.token?.permissions ?? [],
       }),
     }),
   ],

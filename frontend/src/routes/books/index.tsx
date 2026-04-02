@@ -8,10 +8,10 @@ import {
 import { routeLoader$ } from "@builder.io/qwik-city";
 import { graphql } from "~/__generated__";
 import { execute } from "~/api/client";
-import { type BearerToken } from "~/api/token";
 import { BookCard } from "~/components/book-card/book-card";
 import styles from "./profile.css?inline";
 import { AllBooksQuery } from "~/__generated__/graphql";
+import { BearerToken } from "~/api/token";
 
 export const useUser = routeLoader$(({ sharedMap }) => {
   const token = sharedMap.get("token") as string;
@@ -38,11 +38,9 @@ const queryAllBooks = graphql(`
 
 export default component$(() => {
   const user = useUser();
-  const cursor = useSignal(null as string | null);
+  const cursor = useSignal<string | null>(null);
 
   const books = useResource$<AllBooksQuery>(({ track, cleanup }) => {
-    // TODO: It's better to create an API client from the token and pass it
-    // via the context.
     track(() => cursor.value);
     const controller = new AbortController();
     cleanup(() => controller.abort());
@@ -54,7 +52,7 @@ export default component$(() => {
       queryAllBooks,
       {
         after: cursor.value,
-      }
+      },
     );
   });
 
@@ -63,7 +61,11 @@ export default component$(() => {
   return (
     <>
       <h1>Books</h1>
-      <a href="/auth/logout">Sign Out</a>
+      <div>
+        <a href="/auth/logout">Sign Out</a>
+        {" | "}
+        <a href="/books/new">Add New Book</a>
+      </div>
       <main>
         <Resource
           value={books}

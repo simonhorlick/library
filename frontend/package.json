@@ -33,7 +33,7 @@
     "keys": "curl 'https://ad-client-poc.uk.auth0.com/.well-known/jwks.json' > src/api/jwks.json"
   },
   "devDependencies": {
-    "@0no-co/graphqlsp": "^1.12.16",
+    "@0no-co/graphqlsp": "^1.15.0",
     "@builder.io/qwik": "^1.12.1",
     "@builder.io/qwik-city": "^1.12.1",
     "@graphql-codegen/cli": "^5.0.5",
@@ -50,7 +50,7 @@
     "supertest": "^7.1.0",
     "typescript": "5.4.5",
     "undici": "*",
-    "vite": "5.3.5",
+    "vite": "5.4.21",
     "vite-plugin-graphql-codegen": "^3.5.0",
     "vite-tsconfig-paths": "^4.2.1",
     "vitest": "3.0.9",
@@ -68,9 +68,12 @@
     "@opentelemetry/sdk-trace-base": "2.0.0",
     "@opentelemetry/sdk-trace-web": "^2.0.0",
     "@opentelemetry/semantic-conventions": "^1.29.0",
-    "@playwright/test": "^1.51.1",
+    "@playwright/test": "^1.56.1",
     "dotenv": "^16.4.7",
+    "graphql-codegen-typescript-validation-schema": "^0.18.1",
     "jose": "^6.0.10",
-    "openid-client": "^6.3.4"
+    "openid-client": "^6.3.4",
+    "valibot": "^1.2.0",
+    "zod": "^4.1.12"
   }
 }
