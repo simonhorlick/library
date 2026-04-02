@@ -11,6 +11,7 @@ export const onRequest: RequestHandler = async (event) => {
   // Exclude all /auth routes from this middleware.
   const notAuthenticatedPrefixes = ["/auth"];
   if (
+    event.pathname === "/" ||
     notAuthenticatedPrefixes.some((prefix) => event.pathname.startsWith(prefix))
   ) {
     await event.next();
@@ -43,6 +44,9 @@ export const onRequest: RequestHandler = async (event) => {
       // a redirect to the login page.
       throw event.redirect(302, "/auth/login");
     }
+  } else {
+    // If there is no token we redirect to the login page
+    throw event.redirect(302, "/auth/login");
   }
 
   await event.next();
