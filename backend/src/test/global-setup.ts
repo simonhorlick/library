@@ -53,7 +53,7 @@ const setupDatabase = async () => {
 
   const schema = readFileSync(
     join(__dirname, "..", "..", "schema.sql"),
-    "utf-8"
+    "utf-8",
   );
   await testClient.query(schema);
   await testClient.end();

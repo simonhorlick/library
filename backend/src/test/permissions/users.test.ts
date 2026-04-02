@@ -27,37 +27,46 @@ describe("users RLS permissions", () => {
 
   afterAll(async () => {
     await adminClient.query(
-      `DELETE FROM users WHERE email = 'seeded@example.com'`
+      `DELETE FROM users WHERE email = 'seeded@example.com'`,
     );
     await adminClient.end();
   });
 
   it("returns no users when the token has no permissions", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       query {
         users { nodes { id email username } }
       }
-    `, undefined, []);
+    `,
+      undefined,
+      [],
+    );
 
     expect(body.data.users.nodes).toEqual([]);
   });
 
   it("returns users when the token has the read:user permission", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       query {
         users { nodes { id email username } }
       }
-    `, undefined, ["read:user"]);
+    `,
+      undefined,
+      ["read:user"],
+    );
 
     const seeded = body.data.users.nodes.find(
-      (u: any) => u.email === "seeded@example.com"
+      (u: any) => u.email === "seeded@example.com",
     );
     expect(seeded).toBeDefined();
     expect(seeded.username).toBe("seededuser");
   });
 
   it("blocks insert when the token only has read:user", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       mutation {
         createUser(input: { user: { email: "noperm@example.com", username: "noperm" } }) {
           result {
@@ -66,7 +75,10 @@ describe("users RLS permissions", () => {
           }
         }
       }
-    `, undefined, ["read:user"]);
+    `,
+      undefined,
+      ["read:user"],
+    );
 
     // The insert should fail because the RLS policy requires write:user. The
     // exact error shape depends on PostGraphile's error handling, but the
@@ -82,7 +94,8 @@ describe("users RLS permissions", () => {
     // PostgreSQL RLS enforces the SELECT policy when returning rows after an
     // insert, so write:user alone is insufficient - the insert fails because
     // the RETURNING clause cannot read the new row.
-    const { body: createBody } = await graphqlAuthed(`
+    const { body: createBody } = await graphqlAuthed(
+      `
       mutation {
         createUser(input: { user: { email: "writeonly@example.com", username: "writeonly" } }) {
           result {
@@ -91,14 +104,18 @@ describe("users RLS permissions", () => {
           }
         }
       }
-    `, undefined, ["write:user"]);
+    `,
+      undefined,
+      ["write:user"],
+    );
 
     expect(createBody.errors).toBeDefined();
     expect(createBody.errors[0].message).toContain("row-level security");
   });
 
   it("allows full access with both read:user and write:user", async () => {
-    const { body: createBody } = await graphqlAuthed(`
+    const { body: createBody } = await graphqlAuthed(
+      `
       mutation {
         createUser(input: { user: { email: "fullaccess@example.com", username: "fullaccess" } }) {
           result {
@@ -107,27 +124,34 @@ describe("users RLS permissions", () => {
           }
         }
       }
-    `, undefined, ["read:user", "write:user"]);
+    `,
+      undefined,
+      ["read:user", "write:user"],
+    );
 
     expect(createBody.data.createUser.result.__typename).toBe("User");
     expect(createBody.data.createUser.result.email).toBe(
-      "fullaccess@example.com"
+      "fullaccess@example.com",
     );
 
     const userId = createBody.data.createUser.result.id;
 
     // Verify the user is visible via a query.
-    const { body: queryBody } = await graphqlAuthed(`
+    const { body: queryBody } = await graphqlAuthed(
+      `
       query ($id: BigInt!) {
         user(id: $id) { id email username }
       }
-    `, { id: userId }, ["read:user", "write:user"]);
+    `,
+      { id: userId },
+      ["read:user", "write:user"],
+    );
 
     expect(queryBody.data.user.email).toBe("fullaccess@example.com");
 
     // Clean up.
     await adminClient.query(
-      `DELETE FROM users WHERE email = 'fullaccess@example.com'`
+      `DELETE FROM users WHERE email = 'fullaccess@example.com'`,
     );
   });
 
@@ -139,23 +163,27 @@ describe("users RLS permissions", () => {
       ON CONFLICT (email) DO NOTHING
     `);
     const result = await adminClient.query(
-      `SELECT id FROM users WHERE email = 'updatable@example.com'`
+      `SELECT id FROM users WHERE email = 'updatable@example.com'`,
     );
     const userId = result.rows[0].id.toString();
 
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       mutation ($id: BigInt!) {
         updateUser(input: { id: $id, patch: { bio: "updated bio" } }) {
           user { id bio }
         }
       }
-    `, { id: userId }, ["write:user", "read:user"]);
+    `,
+      { id: userId },
+      ["write:user", "read:user"],
+    );
 
     expect(body.data.updateUser.user.bio).toBe("updated bio");
 
     // Clean up.
     await adminClient.query(
-      `DELETE FROM users WHERE email = 'updatable@example.com'`
+      `DELETE FROM users WHERE email = 'updatable@example.com'`,
     );
   });
 });

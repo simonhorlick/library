@@ -9,7 +9,7 @@ const API_URL = "http://localhost:5679/graphql";
 // resulting token is accepted by the test server's JWKS endpoint.
 export const createToken = async (
   permissions: string[],
-  sub: string = "test-user|123"
+  sub: string = "test-user|123",
 ): Promise<string> => {
   const privateKey = await importJWK(TEST_PRIVATE_JWK, "RS256");
 
@@ -27,7 +27,7 @@ export const createToken = async (
 export const graphql = async (
   query: string,
   variables?: Record<string, unknown>,
-  token?: string
+  token?: string,
 ): Promise<{ status: number; body: any }> => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -52,7 +52,7 @@ export const graphql = async (
 export const graphqlAuthed = async (
   query: string,
   variables?: Record<string, unknown>,
-  permissions: string[] = []
+  permissions: string[] = [],
 ): Promise<{ status: number; body: any }> => {
   const token = await createToken(permissions);
   return graphql(query, variables, token);

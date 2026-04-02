@@ -24,45 +24,57 @@ describe("authors", () => {
   });
 
   it("retrieves the author by id", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       query ($id: BigInt!) {
         author(id: $id) { id name bio }
       }
-    `, { id: authorId });
+    `,
+      { id: authorId },
+    );
 
     expect(body.data.author.name).toBe("George Orwell");
     expect(body.data.author.bio).toBe("English novelist");
   });
 
   it("updates the author", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       mutation ($id: BigInt!) {
         updateAuthor(input: { id: $id, patch: { name: "Eric Arthur Blair" } }) {
           author { id name }
         }
       }
-    `, { id: authorId });
+    `,
+      { id: authorId },
+    );
 
     expect(body.data.updateAuthor.author.name).toBe("Eric Arthur Blair");
   });
 
   it("deletes the author", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       mutation ($id: BigInt!) {
         deleteAuthor(input: { id: $id }) {
           author { id }
         }
       }
-    `, { id: authorId });
+    `,
+      { id: authorId },
+    );
 
     expect(body.data.deleteAuthor.author.id).toBe(authorId);
 
     // Confirm it no longer exists.
-    const { body: queryBody } = await graphqlAuthed(`
+    const { body: queryBody } = await graphqlAuthed(
+      `
       query ($id: BigInt!) {
         author(id: $id) { id }
       }
-    `, { id: authorId });
+    `,
+      { id: authorId },
+    );
 
     expect(queryBody.data.author).toBeNull();
   });

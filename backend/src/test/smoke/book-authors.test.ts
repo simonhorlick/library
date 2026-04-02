@@ -35,7 +35,8 @@ describe("book-authors", () => {
   });
 
   it("links the book to the author", async () => {
-    const { body } = await graphqlAuthed(`
+    const { body } = await graphqlAuthed(
+      `
       mutation ($authorId: BigInt!) {
         createBookAuthor(input: { bookAuthor: { bookIsbn: "${isbn}", authorId: $authorId } }) {
           result {
@@ -44,7 +45,9 @@ describe("book-authors", () => {
           }
         }
       }
-    `, { authorId });
+    `,
+      { authorId },
+    );
 
     expect(body.data.createBookAuthor.result.bookIsbn).toBe(isbn);
   });
@@ -65,13 +68,16 @@ describe("book-authors", () => {
   });
 
   it("removes the link and verifies the book has no authors", async () => {
-    const { body: deleteBody } = await graphqlAuthed(`
+    const { body: deleteBody } = await graphqlAuthed(
+      `
       mutation ($authorId: BigInt!) {
         deleteBookAuthor(input: { bookIsbn: "${isbn}", authorId: $authorId }) {
           bookAuthor { bookIsbn authorId }
         }
       }
-    `, { authorId });
+    `,
+      { authorId },
+    );
 
     expect(deleteBody.data.deleteBookAuthor.bookAuthor.bookIsbn).toBe(isbn);
 
@@ -88,11 +94,14 @@ describe("book-authors", () => {
 
   // Clean up the test data so other test suites start with a clean slate.
   it("cleans up", async () => {
-    await graphqlAuthed(`
+    await graphqlAuthed(
+      `
       mutation ($authorId: BigInt!) {
         deleteAuthor(input: { id: $authorId }) { author { id } }
       }
-    `, { authorId });
+    `,
+      { authorId },
+    );
 
     await graphqlAuthed(`
       mutation {
