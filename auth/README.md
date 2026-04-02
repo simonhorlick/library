@@ -18,6 +18,8 @@ Change the name to something client-facing (it will appear on the Authorize App 
 
 Under the tenant settings screen, make sure to add the default audience to be the same as the backend API audience under APIs.
 
+Under tenant settings > advanced. Enable RP-Initiated Logout End Session Endpoint Discovery.
+
 ## Testing
 
 Forward a port on a remote server to your local machine so that auth0 can callback to you.

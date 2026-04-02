@@ -60,19 +60,15 @@ export default component$(() => {
   return (
     <>
       <Form
-        onSubmit$={async (values): Promise<void> => {
+        onSubmit$={async (values) => {
           errorMessage.value = "";
 
           try {
             const result = await execute(
-              {
-                authorization: `Bearer ${user.value.token}`,
-              },
+              { authorization: `Bearer ${user.value.token}` },
               undefined,
               createBookMutation,
-              {
-                book: values,
-              }
+              { book: values }
             );
 
             const resultType = result.createBook!.result!.__typename;

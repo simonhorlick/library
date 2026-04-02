@@ -6,7 +6,7 @@ export const onGet = async ({ cookie, redirect, env }: RequestEvent) => {
   const config: client.Configuration = await client.discovery(
     new URL(import.meta.env.PUBLIC_AUTH_TOKEN_ISSUER),
     import.meta.env.PUBLIC_AUTH_CLIENT_ID,
-    env.get("AUTH_CLIENT_SECRET")
+    env.get("AUTH_CLIENT_SECRET"),
   );
 
   /**
@@ -24,10 +24,6 @@ export const onGet = async ({ cookie, redirect, env }: RequestEvent) => {
     audience: import.meta.env.PUBLIC_AUTH_TOKEN_AUDIENCE,
     code_challenge,
     code_challenge_method: "S256",
-
-    // // Instruct the authorization server to redirect back here for the
-    // // complete-profile flow.
-    // complete_uri: `${import.meta.env.PUBLIC_ORIGIN}/complete-profile`,
   };
 
   if (!config.serverMetadata().supportsPKCE()) {
