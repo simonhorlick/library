@@ -31,6 +31,7 @@ export default defineConfig({
     },
     {
       name: "chromium",
+      testIgnore: /.*login\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         // Use the authenticated state for all tests
