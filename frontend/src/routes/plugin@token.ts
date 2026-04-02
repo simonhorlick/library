@@ -9,8 +9,9 @@ import { JWKS } from "~/api/keys";
 // redirect to the login page.
 export const onRequest: RequestHandler = async (event) => {
   // Exclude all /auth routes from this middleware.
-  const notAuthenticatedPrefixes = ["/auth", "/"];
+  const notAuthenticatedPrefixes = ["/auth"];
   if (
+    event.pathname === "/" ||
     notAuthenticatedPrefixes.some((prefix) => event.pathname.startsWith(prefix))
   ) {
     await event.next();

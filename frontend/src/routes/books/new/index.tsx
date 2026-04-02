@@ -1,5 +1,5 @@
 import { component$, useSignal, $ } from "@builder.io/qwik";
-import { routeLoader$ } from "@builder.io/qwik-city";
+import { routeLoader$, useNavigate } from "@builder.io/qwik-city";
 import { graphql } from "~/__generated__";
 import { execute } from "~/api/client";
 import { type BearerToken } from "~/api/token";
@@ -45,6 +45,7 @@ function assertNever(value: never): never {
 
 export default component$(() => {
   const user = useUser();
+  const nav = useNavigate();
   const [bookForm, { Form, Field }] = useForm<BookForm>({
     loader: useFormLoader(),
     validate: valiForm$(BookInputSchema()),
@@ -64,17 +65,20 @@ export default component$(() => {
           errorMessage.value = "";
 
           try {
+            //await new Promise((resolve) => setTimeout(resolve, 5000));
             const result = await execute(
               { authorization: `Bearer ${user.value.token}` },
               undefined,
               createBookMutation,
-              { book: values }
+              { book: values },
             );
 
             const resultType = result.createBook!.result!.__typename;
             switch (resultType) {
               case "Book":
                 console.log("Book created:", result);
+                // redirect to /books/[isbn] page for the new book
+                await nav(`/books/${result.createBook!.result!.isbn}`);
                 return;
               case "BookIsbnConflict":
                 errorMessage.value = "A book with this ISBN already exists.";
