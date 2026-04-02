@@ -2,6 +2,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    globalSetup: "./src/test/global-setup.ts",
+    include: ["src/test/**/*.test.ts"],
+    testTimeout: 10_000,
+    fileParallelism: false,
     coverage: {
       // you can include other reporters, but 'json-summary' is required, json is recommended
       reporter: ["text", "json-summary", "json"],
