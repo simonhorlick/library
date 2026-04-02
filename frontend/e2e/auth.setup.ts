@@ -26,7 +26,7 @@ setup("authenticate", async ({ page, context }) => {
   await passwordField.fill(process.env.TEST_USER_PASSWORD!);
 
   // Click Continue/Login button
-  await page.getByRole("button", { name: /Continue|Log in/ }).click();
+  await page.getByRole("button", { name: /^Continue$|^Log in$/ }).click();
 
   // Wait for redirect back to app after successful login
   // First we should land on /auth/callback
