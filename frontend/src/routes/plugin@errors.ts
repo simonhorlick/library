@@ -11,7 +11,7 @@ import { SpanStatusCode, trace } from "@opentelemetry/api";
 export const onRequest: RequestHandler = async ({ next }) => {
   try {
     return await next();
-  } catch (err) {
+  } catch (err: any) {
     // Pass through 3xx redirects
     if (isRedirectMessage(err)) {
       throw err;
