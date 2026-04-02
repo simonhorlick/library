@@ -8,7 +8,7 @@ test.describe("Add New Book Page", () => {
     await expect(page.locator('input[id="isbn"]')).toBeVisible();
     await expect(page.locator('input[id="title"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toContainText(
-      "Add Book"
+      "Add Book",
     );
   });
 
