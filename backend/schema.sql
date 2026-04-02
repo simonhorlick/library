@@ -146,9 +146,3 @@ COMMENT ON COLUMN book_authors.book_isbn IS 'The ISBN of the book';
 COMMENT ON COLUMN book_authors.author_id IS 'An author of the book';
 
 GRANT ALL PRIVILEGES ON public.book_authors TO api_user;
-
-CREATE TRIGGER set_timestamp_on_book
-BEFORE
-UPDATE ON books
-FOR EACH ROW
-EXECUTE PROCEDURE set_updated_at_timestamp();

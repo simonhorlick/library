@@ -8,6 +8,8 @@ An application will be automatically created
 
 Make sure to add the Allowed Callback URIs under the backend (Test Application) application (http://localhost:5173/auth/callback)
 
+Add http://localhost:5173 to the Allowed Logout URLs.
+
 Change the application type to Regular Web Application.
 
 Under Advanced Settings > Grant Types > Enable Authorization Code grant
@@ -17,6 +19,8 @@ Under the Credentials tab, make sure Application Authentication is set to None.
 Change the name to something client-facing (it will appear on the Authorize App screen)
 
 Under the tenant settings screen, make sure to add the default audience to be the same as the backend API audience under APIs.
+
+Under tenant settings > advanced. Enable RP-Initiated Logout End Session Endpoint Discovery.
 
 ## Testing
 
