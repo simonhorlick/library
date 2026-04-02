@@ -68,7 +68,7 @@
     "@opentelemetry/sdk-trace-base": "2.0.0",
     "@opentelemetry/sdk-trace-web": "^2.0.0",
     "@opentelemetry/semantic-conventions": "^1.29.0",
-    "@playwright/test": "^1.51.1",
+    "@playwright/test": "^1.56.1",
     "dotenv": "^16.4.7",
     "graphql-codegen-typescript-validation-schema": "^0.18.1",
     "jose": "^6.0.10",
