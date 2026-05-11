@@ -21,7 +21,7 @@
     "@haathie/postgraphile-fancy-mutations": "^0.1.1",
     "@haathie/postgraphile-otel": "^0.1.0",
     "@haathie/postgraphile-reasonable-limits": "^0.1.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.64.6",
+    "@opentelemetry/auto-instrumentations-node": "^0.75.0",
     "@pgsql/traverse": "^17.1.0",
     "check-constraints": "^1.2.1",
     "dotenv": "^17.2.3",
